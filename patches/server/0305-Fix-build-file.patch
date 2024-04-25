@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ProdPreva1l <prod.preva1l@gmail.com>
+Date: Fri, 26 Apr 2024 00:00:04 +1000
+Subject: [PATCH] Fix build file
+
+
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 69da30b9f7f292a3adf685690abc6f2a7e141414..10778ee6767d79caa013f00bbf708023a7fd40d1 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -130,10 +130,6 @@ relocation {
+     relocate("org.bukkit.craftbukkit" to "org.bukkit.craftbukkit.v$craftbukkitPackageVersion") {
+         exclude("org.bukkit.craftbukkit.Main*")
+     }
+-    // Dxtrus start
+-    relocate("redis.clients.jedis" to "net.dxtrus.heartbeat.libraries.jedis")
+-    relocate("org.apache.commons" to "net.dxtrus.heartbeat.libraries.commons")
+-    // Dxtrus end
+ }
+ 
+ tasks.shadowJar {
