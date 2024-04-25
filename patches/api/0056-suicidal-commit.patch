@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ProdPreva1l <prod.preva1l@gmail.com>
+Date: Fri, 26 Apr 2024 05:41:07 +1000
+Subject: [PATCH] suicidal commit
+
+
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 8310dcb0aaeda5ce6f8afba974f06f056e5fe239..231cfac4069d4642e0068cc238661b0769eefb43 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -97,8 +97,6 @@ sourceSets {
+ configure<PublishingExtension> {
+     publications.create<MavenPublication>("maven") {
+         from(components["java"])
+-        artifact(sourceSets.main)
+-        artifact(tasks.javadoc)
+     }
+ }
+ 
+@@ -211,3 +209,4 @@ tasks.check {
+     dependsOn(scanJarForOldGeneratedCode)
+ }
+ // Paper end
++
