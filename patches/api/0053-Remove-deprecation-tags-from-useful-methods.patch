@@ -1,0 +1,158 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ProdPreva1l <prod.preva1l@gmail.com>
+Date: Fri, 26 Apr 2024 00:25:38 +1000
+Subject: [PATCH] Remove deprecation tags from useful methods
+
+* Changes Server.jar
+* Changes Player.jar
+* API Changes only
+
+diff --git a/src/main/java/org/bukkit/Server.java b/src/main/java/org/bukkit/Server.java
+index c15b0b05870a469ea5d314c9fac6a57a045f463c..e4fc3946b68332556deca6c670780d18827b2ad9 100644
+--- a/src/main/java/org/bukkit/Server.java
++++ b/src/main/java/org/bukkit/Server.java
+@@ -377,9 +377,7 @@ public interface Server extends PluginMessageRecipient, net.kyori.adventure.audi
+      *
+      * @param message the message
+      * @return the number of players
+-     * @deprecated use {@link #broadcast(net.kyori.adventure.text.Component)}
+      */
+-    @Deprecated // Paper
+     public int broadcastMessage(@NotNull String message);
+ 
+     // Paper start
+diff --git a/src/main/java/org/bukkit/entity/Player.java b/src/main/java/org/bukkit/entity/Player.java
+index 8bbbdad40bc6a1932d8f79ec95c0a92037b3dac5..389cf47b723079fd7ef144f83b2972cd48944e32 100644
+--- a/src/main/java/org/bukkit/entity/Player.java
++++ b/src/main/java/org/bukkit/entity/Player.java
+@@ -105,9 +105,7 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+      * places defined by plugins.
+      *
+      * @return the friendly name
+-     * @deprecated in favour of {@link #displayName()}
+      */
+-    @Deprecated // Paper
+     @NotNull
+     public String getDisplayName();
+ 
+@@ -119,9 +117,7 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+      * places defined by plugins.
+      *
+      * @param name The new display name.
+-     * @deprecated in favour of {@link #displayName(net.kyori.adventure.text.Component)}
+      */
+-    @Deprecated // Paper
+     public void setDisplayName(@Nullable String name);
+ 
+     // Paper start
+@@ -159,10 +155,8 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+      * Gets the name that is shown on the player list.
+      *
+      * @return the player list name
+-     * @deprecated in favour of {@link #playerListName()}
+      */
+     @NotNull
+-    @Deprecated // Paper
+     public String getPlayerListName();
+ 
+     /**
+@@ -171,18 +165,14 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+      * If the value is null, the name will be identical to {@link #getName()}.
+      *
+      * @param name new player list name
+-     * @deprecated in favour of {@link #playerListName(net.kyori.adventure.text.Component)}
+      */
+-    @Deprecated // Paper
+     public void setPlayerListName(@Nullable String name);
+ 
+     /**
+      * Gets the currently displayed player list header for this player.
+      *
+      * @return player list header or null
+-     * @deprecated in favour of {@link #playerListHeader()}
+      */
+-    @Deprecated // Paper
+     @Nullable
+     public String getPlayerListHeader();
+ 
+@@ -190,9 +180,7 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+      * Gets the currently displayed player list footer for this player.
+      *
+      * @return player list header or null
+-     * @deprecated in favour of {@link #playerListFooter()}
+      */
+-    @Deprecated // Paper
+     @Nullable
+     public String getPlayerListFooter();
+ 
+@@ -200,18 +188,14 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+      * Sets the currently displayed player list header for this player.
+      *
+      * @param header player list header, null for empty
+-     * @deprecated in favour of {@link #sendPlayerListHeader(net.kyori.adventure.text.Component)}
+      */
+-    @Deprecated // Paper
+     public void setPlayerListHeader(@Nullable String header);
+ 
+     /**
+      * Sets the currently displayed player list footer for this player.
+      *
+      * @param footer player list footer, null for empty
+-     * @deprecated in favour of {@link #sendPlayerListFooter(net.kyori.adventure.text.Component)}
+      */
+-    @Deprecated // Paper
+     public void setPlayerListFooter(@Nullable String footer);
+ 
+     /**
+@@ -220,9 +204,7 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+      *
+      * @param header player list header, null for empty
+      * @param footer player list footer, null for empty
+-     * @deprecated in favour of {@link #sendPlayerListHeaderAndFooter(net.kyori.adventure.text.Component, net.kyori.adventure.text.Component)}
+      */
+-    @Deprecated // Paper
+     public void setPlayerListHeaderFooter(@Nullable String header, @Nullable String footer);
+ 
+     /**
+@@ -260,9 +242,7 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+      * Kicks player with custom kick message.
+      *
+      * @param message kick message
+-     * @deprecated in favour of {@link #kick(net.kyori.adventure.text.Component)}
+      */
+-    @Deprecated // Paper
+     public void kickPlayer(@Nullable String message);
+ 
+     // Paper start
+@@ -400,7 +380,6 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+ 
+     /**
+      * Returns true if the entity is supported by a block.
+-     *
+      * This value is a state updated by the client after each movement.
+      *
+      * @return True if entity is on ground.
+@@ -1091,11 +1070,7 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+      * @param lines the new text on the sign or null to clear it
+      * @throws IllegalArgumentException if location is null
+      * @throws IllegalArgumentException if lines is non-null and has a length less than 4
+-     * @deprecated Use {@link #sendBlockUpdate(Location, TileState)} by creating a new virtual
+-     * {@link org.bukkit.block.Sign} block state via {@link BlockData#createBlockState()}
+-     * (constructed e.g. via {@link Material#createBlockData()})
+      */
+-    @Deprecated // Paper
+     public void sendSignChange(@NotNull Location loc, @Nullable String[] lines) throws IllegalArgumentException;
+ 
+     /**
+@@ -1117,11 +1092,7 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+      * @throws IllegalArgumentException if location is null
+      * @throws IllegalArgumentException if dyeColor is null
+      * @throws IllegalArgumentException if lines is non-null and has a length less than 4
+-     * @deprecated Use {@link #sendBlockUpdate(Location, TileState)} by creating a new virtual
+-     * {@link org.bukkit.block.Sign} block state via {@link BlockData#createBlockState()}
+-     * (constructed e.g. via {@link Material#createBlockData()})
+      */
+-    @Deprecated // Paper
+     public void sendSignChange(@NotNull Location loc, @Nullable String[] lines, @NotNull DyeColor dyeColor) throws IllegalArgumentException;
+ 
+     /**
