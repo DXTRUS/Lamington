@@ -63,7 +63,7 @@ dependencies {
 }
 
 paperweight {
-    serverProject = project(":purpur-server")
+    serverProject = project(":lamington-server")
 
     remapRepo = paperMavenPublicUrl
     decompileRepo = paperMavenPublicUrl
@@ -71,10 +71,10 @@ paperweight {
     usePaperUpstream(providers.gradleProperty("paperCommit")) {
         withPaperPatcher {
             apiPatchDir = layout.projectDirectory.dir("patches/api")
-            apiOutputDir = layout.projectDirectory.dir("Purpur-API")
+            apiOutputDir = layout.projectDirectory.dir("Lamington-API")
 
             serverPatchDir = layout.projectDirectory.dir("patches/server")
-            serverOutputDir = layout.projectDirectory.dir("Purpur-Server")
+            serverOutputDir = layout.projectDirectory.dir("Lamington-Server")
         }
 
         patchTasks.register("generatedApi") {

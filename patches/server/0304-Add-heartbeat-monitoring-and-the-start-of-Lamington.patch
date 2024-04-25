@@ -17,7 +17,7 @@ index 1cad0728d005df9475a978b272adef9703f2ba46..69da30b9f7f292a3adf685690abc6f2a
 +    implementation("org.apache.commons:commons-pool2:2.12.0")
 +    // Dxtrus End
      // Purpur start
-     implementation(project(":purpur-api"))
+     implementation(project(":lamington-api"))
      implementation("io.papermc.paper:paper-mojangapi:${project.version}") {
 @@ -126,6 +130,10 @@ relocation {
      relocate("org.bukkit.craftbukkit" to "org.bukkit.craftbukkit.v$craftbukkitPackageVersion") {
