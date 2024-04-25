@@ -86,34 +86,17 @@ paperweight {
     }
 }
 
-tasks.generateDevelopmentBundle {
-    apiCoordinates = "org.purpurmc.purpur:purpur-api"
-    mojangApiCoordinates = "io.papermc.paper:paper-mojangapi"
-    libraryRepositories = listOf(
-        "https://repo.maven.apache.org/maven2/",
-        paperMavenPublicUrl,
-        "https://repo.purpurmc.org/snapshots",
-    )
-}
-
 allprojects {
     publishing {
         repositories {
-            maven("https://repo.purpurmc.org/snapshots") {
-                name = "purpur"
+            maven("https://maven.asdev.info/releases") {
+                name = "dxtrusReleases"
                 credentials(PasswordCredentials::class)
             }
         }
     }
 }
 
-publishing {
-    publications.create<MavenPublication>("devBundle") {
-        artifact(tasks.generateDevelopmentBundle) {
-            artifactId = "dev-bundle"
-        }
-    }
-}
 
 tasks.register("printMinecraftVersion") {
     doLast {
