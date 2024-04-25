@@ -1,0 +1,157 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ProdPreva1l <prod.preva1l@gmail.com>
+Date: Fri, 26 Apr 2024 01:39:44 +1000
+Subject: [PATCH] Rework HeartBeat implementation
+
+
+diff --git a/src/main/java/net/dxtrus/HeartBeat/HeartBeat.java b/src/main/java/net/dxtrus/HeartBeat/HeartBeat.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..893de993f92c94b93e5f00e2595012ca0da7da33
+--- /dev/null
++++ b/src/main/java/net/dxtrus/HeartBeat/HeartBeat.java
+@@ -0,0 +1,91 @@
++package net.dxtrus.HeartBeat;
++
++import com.google.gson.JsonObject;
++import org.jetbrains.annotations.NotNull;
++import org.jetbrains.annotations.Nullable;
++import java.util.Map;
++
++public interface HeartBeat {
++    /**
++     * Get this servers id as defined in lamington.yml
++     * @return the current server
++     */
++    @NotNull
++    String getCurrentServer();
++
++    /**
++     * Get all the servers that are pinging or still cached in the heartbeat server
++     * @return a map of string to jsonobject
++     */
++    @NotNull
++    Map<String, JsonObject> getServers();
++
++    /**
++     * Get the json object for a server from its id
++     * @param server the server id
++     * @return the json object
++     */
++    @Nullable
++    JsonObject getServerObject(@NotNull String server);
++
++    /**
++     * Get the player count of a server
++     * @param server server to get
++     * @return int of player count
++     */
++    @Nullable
++    Integer getPlayerCount(@NotNull String server);
++
++    /**
++     * Get the tps of a server
++     * @param server server to get
++     * @return double of tps
++     */
++    @Nullable
++    Double getTPS(@NotNull String server);
++
++    /**
++     * Get the mspt of a server
++     * @param server server to get
++     * @return double of mspt
++     */
++    @Nullable
++    Double getMSPT(@NotNull String server);
++
++    /**
++     * Check whether a server is online
++     * @param server server to check
++     * @return boolean true if the server is online false if not
++     */
++    @Nullable
++    Boolean isOnline(@NotNull String server);
++
++    /**
++     * Get the online time of a server,
++     * returns a list of long where:
++     * 0 = days
++     * 1 = hours
++     * 2 = minutes
++     * 3 = seconds
++     * @param server server to get
++     * @return double of tps
++     */
++    @Nullable
++    Long[] getOnlineTime(@NotNull String server);
++
++    /**
++     * Get the time of the last heartbeat sent by a server
++     * @param server server to check
++     * @return time in epoch milli
++     */
++    @Nullable
++    Long getLastHeartbeat(@NotNull String server);
++
++    /**
++     * Get the time when a server started
++     * @param server server to check
++     * @return time in epoch milli
++     */
++    @Nullable
++    Long getStartTime(@NotNull String server);
++}
+diff --git a/src/main/java/org/bukkit/Bukkit.java b/src/main/java/org/bukkit/Bukkit.java
+index 53ce0fb2dac9c22680ab934f535b5a2037139445..b2f0cf844b80a132bf830b41efdb2643d68eb948 100644
+--- a/src/main/java/org/bukkit/Bukkit.java
++++ b/src/main/java/org/bukkit/Bukkit.java
+@@ -14,6 +14,7 @@ import java.util.Set;
+ import java.util.UUID;
+ import java.util.function.Consumer;
+ import java.util.logging.Logger;
++import net.dxtrus.HeartBeat.HeartBeat;
+ import org.bukkit.Warning.WarningState;
+ import org.bukkit.advancement.Advancement;
+ import org.bukkit.block.data.BlockData;
+@@ -3007,4 +3008,15 @@ public final class Bukkit {
+         server.clearBlockHighlights();
+     }
+     // Purpur end
++
++    // Lamington start
++    /**
++     * Get this servers heartbeat
++     * @return the servers heart beat
++     */
++    @Nullable
++    public static HeartBeat getHeartBeat() {
++        return server.getHeartBeat();
++    }
++    // Lamington end
+ }
+diff --git a/src/main/java/org/bukkit/Server.java b/src/main/java/org/bukkit/Server.java
+index e4fc3946b68332556deca6c670780d18827b2ad9..5203e238f057992fb6bfb4abaf0d274686193d13 100644
+--- a/src/main/java/org/bukkit/Server.java
++++ b/src/main/java/org/bukkit/Server.java
+@@ -14,6 +14,7 @@ import java.util.Set;
+ import java.util.UUID;
+ import java.util.function.Consumer;
+ import java.util.logging.Logger;
++import net.dxtrus.HeartBeat.HeartBeat;
+ import org.bukkit.Warning.WarningState;
+ import org.bukkit.advancement.Advancement;
+ import org.bukkit.block.data.BlockData;
+@@ -2629,4 +2630,13 @@ public interface Server extends PluginMessageRecipient, net.kyori.adventure.audi
+      */
+     void clearBlockHighlights();
+     // Purpur end
++
++    // Lamington start
++    /**
++     * Gets the servers heartbeat
++     * @return dxtrus heartbeat
++     */
++    @Nullable
++    HeartBeat getHeartBeat();
++    // Lamington end
+ }
