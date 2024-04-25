@@ -1,0 +1,522 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ProdPreva1l <prod.preva1l@gmail.com>
+Date: Thu, 25 Apr 2024 23:41:29 +1000
+Subject: [PATCH] Add heartbeat monitoring and the start of Lamington
+
+
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 1cad0728d005df9475a978b272adef9703f2ba46..69da30b9f7f292a3adf685690abc6f2a7e141414 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -13,6 +13,10 @@ configurations.named(log4jPlugins.compileClasspathConfigurationName) {
+ val alsoShade: Configuration by configurations.creating
+ 
+ dependencies {
++    // Dxtrus Start
++    implementation("redis.clients:jedis:5.1.0")
++    implementation("org.apache.commons:commons-pool2:2.12.0")
++    // Dxtrus End
+     // Purpur start
+     implementation(project(":purpur-api"))
+     implementation("io.papermc.paper:paper-mojangapi:${project.version}") {
+@@ -126,6 +130,10 @@ relocation {
+     relocate("org.bukkit.craftbukkit" to "org.bukkit.craftbukkit.v$craftbukkitPackageVersion") {
+         exclude("org.bukkit.craftbukkit.Main*")
+     }
++    // Dxtrus start
++    relocate("redis.clients.jedis" to "net.dxtrus.heartbeat.libraries.jedis")
++    relocate("org.apache.commons" to "net.dxtrus.heartbeat.libraries.commons")
++    // Dxtrus end
+ }
+ 
+ tasks.shadowJar {
+diff --git a/src/main/java/net/dxtrus/DxtrusConfig.java b/src/main/java/net/dxtrus/DxtrusConfig.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..1a502ca9dd30282e690f9690835f71470c8f983a
+--- /dev/null
++++ b/src/main/java/net/dxtrus/DxtrusConfig.java
+@@ -0,0 +1,148 @@
++package net.dxtrus;
++
++import com.google.common.base.Throwables;
++import com.google.common.collect.ImmutableMap;
++import org.bukkit.Bukkit;
++import org.bukkit.configuration.ConfigurationSection;
++import org.bukkit.configuration.InvalidConfigurationException;
++import org.bukkit.configuration.file.YamlConfiguration;
++import java.io.File;
++import java.io.IOException;
++import java.lang.reflect.InvocationTargetException;
++import java.lang.reflect.Method;
++import java.lang.reflect.Modifier;
++import java.util.List;
++import java.util.Map;
++import java.util.logging.Level;
++
++public class DxtrusConfig {
++    private static final String HEADER =
++            """
++                This is the main configuration file for Lamington (Dxtrus fork of Purpur)
++                Not much to configure but it will grow!
++            """;
++    private static File CONFIG_FILE;
++    public static YamlConfiguration config;
++
++    public static int version;
++    public static boolean verbose;
++
++    public static void init(File configFile) {
++        CONFIG_FILE = configFile;
++        config = new YamlConfiguration();
++        try {
++            config.load(CONFIG_FILE);
++        } catch (IOException ignore) {
++        } catch (InvalidConfigurationException ex) {
++            Bukkit.getLogger().log(Level.SEVERE, "Could not load purpur.yml, please correct your syntax errors", ex);
++            throw Throwables.propagate(ex);
++        }
++        config.options().header(HEADER);
++        config.options().copyDefaults(true);
++        verbose = getBoolean("verbose", false);
++
++        version = getInt("config-version", 1);
++        set("config-version", 1);
++
++        readConfig(DxtrusConfig.class, null);
++    }
++
++    protected static void log(String s) {
++        if (verbose) {
++            log(Level.INFO, s);
++        }
++    }
++
++    protected static void log(Level level, String s) {
++        Bukkit.getLogger().log(level, s);
++    }
++
++    static void readConfig(Class<?> clazz, Object instance) {
++        for (Method method : clazz.getDeclaredMethods()) {
++            if (Modifier.isPrivate(method.getModifiers())) {
++                if (method.getParameterTypes().length == 0 && method.getReturnType() == Void.TYPE) {
++                    try {
++                        method.setAccessible(true);
++                        method.invoke(instance);
++                    } catch (InvocationTargetException ex) {
++                        throw Throwables.propagate(ex.getCause());
++                    } catch (Exception ex) {
++                        Bukkit.getLogger().log(Level.SEVERE, "Error invoking " + method, ex);
++                    }
++                }
++            }
++        }
++
++        try {
++            config.save(CONFIG_FILE);
++        } catch (IOException ex) {
++            Bukkit.getLogger().log(Level.SEVERE, "Could not save " + CONFIG_FILE, ex);
++        }
++    }
++
++    private static void set(String path, Object val) {
++        config.addDefault(path, val);
++        config.set(path, val);
++    }
++
++    private static String getString(String path, String def) {
++        config.addDefault(path, def);
++        return config.getString(path, config.getString(path));
++    }
++
++    private static boolean getBoolean(String path, boolean def) {
++        config.addDefault(path, def);
++        return config.getBoolean(path, config.getBoolean(path));
++    }
++
++    private static double getDouble(String path, double def) {
++        config.addDefault(path, def);
++        return config.getDouble(path, config.getDouble(path));
++    }
++
++    private static int getInt(String path, int def) {
++        config.addDefault(path, def);
++        return config.getInt(path, config.getInt(path));
++    }
++
++    private static <T> List getList(String path, T def) {
++        config.addDefault(path, def);
++        return config.getList(path, config.getList(path));
++    }
++
++    static Map<String, Object> getMap(String path, Map<String, Object> def) {
++        if (def != null && config.getConfigurationSection(path) == null) {
++            config.addDefault(path, def);
++            return def;
++        }
++        return toMap(config.getConfigurationSection(path));
++    }
++
++    private static Map<String, Object> toMap(ConfigurationSection section) {
++        ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
++        if (section != null) {
++            for (String key : section.getKeys(false)) {
++                Object obj = section.get(key);
++                if (obj != null) {
++                    builder.put(key, obj instanceof ConfigurationSection val ? toMap(val) : obj);
++                }
++            }
++        }
++        return builder.build();
++    }
++
++    public static String serverName = "server-01";
++    public static boolean heartBeatEnabled = false;
++    public static String redisHost = "127.0.0.1";
++    public static int redisPort = 6379;
++    public static String redisPassword = "P4s5W0rd!";
++    private static void general() {
++        serverName = getString("server-name", "server-01");
++
++        heartBeatEnabled = getBoolean("heartbeat.is-enabled", false);
++
++        redisHost = getString("redis.host", "127.0.0.1");
++        redisPort = getInt("redis.port", 6379);
++        redisPassword = getString("redis.port", "P4s5W0rd!");
++    }
++}
+diff --git a/src/main/java/net/dxtrus/heartbeat/HeartBeat.java b/src/main/java/net/dxtrus/heartbeat/HeartBeat.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..abe5786c5d0efd2b8da76442d2b4051b16cb5a9c
+--- /dev/null
++++ b/src/main/java/net/dxtrus/heartbeat/HeartBeat.java
+@@ -0,0 +1,176 @@
++package net.dxtrus.heartbeat;
++
++import com.google.gson.JsonObject;
++import com.google.gson.JsonParser;
++import net.dxtrus.DxtrusConfig;
++import org.bukkit.Bukkit;
++import org.bukkit.craftbukkit.scheduler.MinecraftInternalPlugin;
++import redis.clients.jedis.Jedis;
++import redis.clients.jedis.JedisPoolConfig;
++import redis.clients.jedis.JedisPool;
++import redis.clients.jedis.exceptions.JedisException;
++import redis.clients.jedis.util.Pool;
++import java.util.HashMap;
++import java.util.Map;
++import java.util.logging.Level;
++
++@SuppressWarnings("unused")
++public class HeartBeat {
++    private static Pool<Jedis> pool;
++    private static String currentServer;
++    private static final Map<String, JsonObject> servers = new HashMap<>();
++
++    public HeartBeat() {
++        currentServer = DxtrusConfig.serverName;
++
++        Bukkit.getScheduler().runTaskAsynchronously(new MinecraftInternalPlugin(), () -> {
++            log("Lamington is connecting to redis pool...");
++            try {
++                final JedisPoolConfig config = new JedisPoolConfig();
++                config.setMaxIdle(2);
++                config.setTestOnBorrow(true);
++                config.setTestOnReturn(true);
++
++                pool = new JedisPool(config, DxtrusConfig.redisHost, DxtrusConfig.redisPort, 0, DxtrusConfig.redisPassword);
++            } catch (JedisException e) {
++                Bukkit.getLogger().log(Level.SEVERE, "Lamington failed to connect to Redis: ", e);
++                throw new RuntimeException(e);
++            }
++            log("Lamington successfully connected to Redis!");
++        });
++
++        Bukkit.getScheduler().runTaskTimerAsynchronously(new MinecraftInternalPlugin(), this::startMonitoring, 1L, 20L);
++        Bukkit.getScheduler().runTaskTimerAsynchronously(new MinecraftInternalPlugin(), this::startPing, 1L, 20L);
++    }
++
++    private void startMonitoring() {
++        long startTime = System.currentTimeMillis();
++        double tps = Math.min(Bukkit.getTPS()[0], 20.0);
++        double mspt = Math.round(Bukkit.getAverageTickTime() * 100.0) / 100.0;
++        long lastHeartBeat = System.currentTimeMillis();
++        int onlinePlayers = Bukkit.getOnlinePlayers().size();
++        JsonObject serverData = new JsonObject();
++
++        serverData.addProperty("server", getCurrentServer());
++        serverData.addProperty("onlinePlayers", onlinePlayers);
++        serverData.addProperty("tps", tps);
++        serverData.addProperty("mspt", mspt);
++        serverData.addProperty("startTime", startTime);
++        serverData.addProperty("lastHeartBeat", lastHeartBeat);
++
++        String serverDataJson = serverData.toString();
++
++        try (Jedis jedis = pool.getResource()) {
++            jedis.hset("lamington_heartbeat", currentServer, serverDataJson);
++        } catch (Exception e) {
++            Bukkit.getLogger().log(Level.SEVERE, "Lamington failed to send server data with redis: ", e);
++        }
++    }
++
++    private void startPing() {
++        try (Jedis jedis = pool.getResource()) {
++            servers.clear();
++            Map<String, String> temp = jedis.hgetAll("lamington_heartbeat");
++            for (String key : temp.keySet()) {
++                servers.put(key, JsonParser.parseString(temp.get(key)).getAsJsonObject());
++            }
++        } catch (Exception e) {
++            Bukkit.getLogger().log(Level.SEVERE, "Lamington failed to get server data from redis: ", e);
++        }
++    }
++
++    public void shutdown() {
++        log("Lamington is disconnecting from redis...");
++        if (pool != null) {
++            pool.close();
++        }
++        log("Lamington has disconnected from redis!");
++    }
++
++    private void log(String message) {
++        if (DxtrusConfig.verbose) {
++            Bukkit.getLogger().log(Level.INFO, message);
++        }
++    }
++    private void log(String message, Exception e) {
++        if (DxtrusConfig.verbose) {
++            Bukkit.getLogger().log(Level.SEVERE, message, e);
++        }
++    }
++
++    // Getters
++    public static String getCurrentServer() {
++        return currentServer;
++    }
++    public static Map<String, JsonObject> getServers() {
++        return servers;
++    }
++
++    public static JsonObject getServerObject(String server) {
++        return servers.get(server);
++    }
++
++    public static int getPlayerCount(String server) {
++        JsonObject serverObj = getServerObject(server);
++        if (serverObj != null) {
++            return Integer.parseInt(serverObj.get("onlinePlayers").toString());
++        }
++        return 0;
++    }
++
++    public static double getTPS(String server) {
++        JsonObject serverObj = getServerObject(server);
++        if (serverObj != null) {
++            return Double.parseDouble(serverObj.get("tps").toString());
++        }
++        return 00.0;
++    }
++
++    public static double getMSPT(String server) {
++        JsonObject serverObj = getServerObject(server);
++        if (serverObj != null) {
++            return Double.parseDouble(serverObj.get("mspt").toString());
++        }
++        return 00.0;
++    }
++
++    public static boolean isOnline(String server) {
++        JsonObject serverObj = getServerObject(server);
++        if (serverObj != null) {
++            return Long.parseLong(serverObj.get("lastHeartBeat").toString()) >= System.currentTimeMillis() - 4000;
++        }
++        return false;
++    }
++
++    public static long[] getOnlineTime(String server) {
++        JsonObject serverObj = getServerObject(server);
++        if (serverObj != null) {
++            long milliOnline = Long.parseLong(serverObj.get("lastHeartBeat").toString()) - Long.parseLong(serverObj.get("startTime").toString());
++            long seconds = milliOnline / 1000;
++            long minutes = seconds / 60;
++            long hours = minutes / 60;
++            long days = hours / 24;
++            hours %= 24;
++            minutes %= 60;
++            seconds %= 60;
++            return new long[]{days, hours, minutes, seconds};
++        }
++        return new long[]{0, 0, 0, 0};
++    }
++
++    public static long getLastHeartbeat(String server) {
++        JsonObject serverObj = getServerObject(server);
++        if (serverObj != null) {
++            return Long.parseLong(serverObj.get("lastHeartBeat").toString());
++        }
++        return 0;
++    }
++
++    public static long getStartTime(String server) {
++        JsonObject serverObj = getServerObject(server);
++        if (serverObj != null) {
++            return Long.parseLong(serverObj.get("startTime").toString());
++        }
++        return 0;
++    }
++}
+diff --git a/src/main/java/net/dxtrus/heartbeat/MonitoringTask.java b/src/main/java/net/dxtrus/heartbeat/MonitoringTask.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..0079be73ef94a6578d9d4100bfb44691266e2f0e
+--- /dev/null
++++ b/src/main/java/net/dxtrus/heartbeat/MonitoringTask.java
+@@ -0,0 +1,18 @@
++package net.dxtrus.heartbeat;
++
++import org.bukkit.scheduler.BukkitRunnable;
++
++public class MonitoringTask extends BukkitRunnable {
++    private static MonitoringTask instance;
++    @Override
++    public void run() {
++
++    }
++
++    public static MonitoringTask instance() {
++        if (instance == null) {
++            instance = new MonitoringTask();
++        }
++        return instance;
++    }
++}
+diff --git a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+index 5ca6af93362d205438f8321ee2461ae7f8160df1..ad4c45a8934652b8379ce093c529ccbbf0826d02 100644
+--- a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -19,6 +19,8 @@ import java.util.Locale;
+ import java.util.Optional;
+ import java.util.function.BooleanSupplier;
+ import javax.annotation.Nullable;
++import net.dxtrus.DxtrusConfig;
++import net.dxtrus.heartbeat.HeartBeat;
+ import net.minecraft.DefaultUncaughtExceptionHandler;
+ import net.minecraft.DefaultUncaughtExceptionHandlerWithName;
+ import net.minecraft.SharedConstants;
+@@ -80,6 +82,8 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+     private MinecraftServerGui gui;
+     @Nullable
+     private final TextFilterClient textFilterClient;
++    @Nullable
++    private HeartBeat dxtrusHeartBeat;
+ 
+     // CraftBukkit start - Signature changed
+     public DedicatedServer(joptsimple.OptionSet options, WorldLoader.DataLoadContext worldLoader, Thread thread, LevelStorageSource.LevelStorageAccess convertable_conversionsession, PackRepository resourcepackrepository, WorldStem worldstem, DedicatedServerSettings dedicatedserversettings, DataFixer datafixer, Services services, ChunkProgressListenerFactory worldloadlistenerfactory) {
+@@ -229,6 +233,14 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+         }
+         org.purpurmc.purpur.PurpurConfig.registerCommands();
+         // Purpur end
++        // Dxtrus Start
++        try {
++            net.dxtrus.DxtrusConfig.init((java.io.File) options.valueOf("dxtrus-settings"));
++        } catch (Exception e) {
++            DedicatedServer.LOGGER.error("Unable to load lamington server configuration", e);
++            return false;
++        }
++        // Dxtrus End
+         com.destroystokyo.paper.VersionHistoryManager.INSTANCE.getClass(); // Paper - load version history now
+         io.papermc.paper.brigadier.PaperBrigadierProviderImpl.INSTANCE.getClass(); // Paper - init PaperBrigadierProvider
+         gg.pufferfish.pufferfish.PufferfishConfig.pufferfishFile = (java.io.File) options.valueOf("pufferfish-settings"); // Purpur
+@@ -312,40 +324,29 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+         this.server.enablePlugins(org.bukkit.plugin.PluginLoadOrder.STARTUP);
+         // CraftBukkit end
+ 
+-        // Paper start - Add Velocity IP Forwarding Support
+-        boolean usingProxy = org.spigotmc.SpigotConfig.bungee || io.papermc.paper.configuration.GlobalConfiguration.get().proxies.velocity.enabled;
+-        String proxyFlavor = (io.papermc.paper.configuration.GlobalConfiguration.get().proxies.velocity.enabled) ? "Velocity" : "BungeeCord";
+-        String proxyLink = (io.papermc.paper.configuration.GlobalConfiguration.get().proxies.velocity.enabled) ? "https://docs.papermc.io/velocity/security" : "http://www.spigotmc.org/wiki/firewall-guide/";
+-        // Paper end - Add Velocity IP Forwarding Support
++        // Dxtrus start - Make the offline mode warning less intrusive
+         if (!this.usesAuthentication()) {
+-            DedicatedServer.LOGGER.warn("**** SERVER IS RUNNING IN OFFLINE/INSECURE MODE!");
+-            DedicatedServer.LOGGER.warn("The server will make no attempt to authenticate usernames. Beware.");
+-            // Spigot start
+-            // Paper start - Add Velocity IP Forwarding Support
+-            if (usingProxy) {
+-                DedicatedServer.LOGGER.warn("Whilst this makes it possible to use " + proxyFlavor + ", unless access to your server is properly restricted, it also opens up the ability for hackers to connect with any username they choose.");
+-                DedicatedServer.LOGGER.warn("Please see " + proxyLink + " for further information.");
+-            // Paper end - Add Velocity IP Forwarding Support
+-            } else {
+-                DedicatedServer.LOGGER.warn("While this makes the game possible to play without internet access, it also opens up the ability for hackers to connect with any username they choose.");
+-            }
+-            // Spigot end
+-            DedicatedServer.LOGGER.warn("To change this, set \"online-mode\" to \"true\" in the server.properties file.");
++            DedicatedServer.LOGGER.warn("-+-+ This server is running in Proxy mode! +-+-");
++            DedicatedServer.LOGGER.warn("1. Verify that the IP is only internally accessible");
++            DedicatedServer.LOGGER.warn("2. Make sure that you are using Velocity or BungeeGuard to secure this server");
++            DedicatedServer.LOGGER.warn("3. If your not using a proxy, stop breaking the law by serving cracked users....");
+         }
+-
++        // Dxtrus end
+ 
+         if (!OldUsersConverter.serverReadyAfterUserconversion(this)) {
+             return false;
+         } else {
+             // this.setPlayerList(new DedicatedPlayerList(this, this.registries(), this.playerDataStorage)); // CraftBukkit - moved up
+-            long i = Util.getNanos();
+ 
+             SkullBlockEntity.setup(this.services, this);
+             GameProfileCache.setUsesAuthentication(this.usesAuthentication());
+             DedicatedServer.LOGGER.info("Preparing level \"{}\"", this.getLevelIdName());
+             this.loadLevel(this.storageSource.getLevelId()); // CraftBukkit
+-            long j = Util.getNanos() - i;
+-            String s = String.format(Locale.ROOT, "%.3fs", (double) j / 1.0E9D);
++            // Dxtrus start - heartbeat monitoring
++            if (DxtrusConfig.heartBeatEnabled) {
++                dxtrusHeartBeat = new HeartBeat();
++            }
++            // Dxtrus end
+ 
+             //DedicatedServer.LOGGER.info("Done ({})! For help, type \"help\"", s); // Paper moved to after init
+             if (dedicatedserverproperties.announcePlayerAchievements != null) {
+@@ -860,6 +861,9 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+     @Override
+     public void stopServer() {
+         super.stopServer();
++        if (dxtrusHeartBeat != null) {
++            dxtrusHeartBeat.shutdown();
++        }
+         //Util.shutdownExecutors(); // Paper - moved into super
+         SkullBlockEntity.clear();
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index dabaf0cff6dafe8ca411996e67ead9a2cf84dfb8..a33ac9c9c3228b6216ff5702fd4548861c652430 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -1069,6 +1069,7 @@ public final class CraftServer implements Server {
+         org.spigotmc.SpigotConfig.init((File) this.console.options.valueOf("spigot-settings")); // Spigot
+         this.console.paperConfigurations.reloadConfigs(this.console);
+         org.purpurmc.purpur.PurpurConfig.init((File) console.options.valueOf("purpur-settings")); // Purpur
++        net.dxtrus.DxtrusConfig.init((File) console.options.valueOf("dxtrus-settings")); // Dxtrus
+         for (ServerLevel world : this.console.getAllLevels()) {
+             // world.serverLevelData.setDifficulty(config.difficulty); // Paper - per level difficulty
+             world.setSpawnSettings(world.serverLevelData.getDifficulty() != Difficulty.PEACEFUL && config.spawnMonsters, config.spawnAnimals); // Paper - per level difficulty (from MinecraftServer#setDifficulty(ServerLevel, Difficulty, boolean))
+diff --git a/src/main/java/org/bukkit/craftbukkit/Main.java b/src/main/java/org/bukkit/craftbukkit/Main.java
+index 409c0e81571e23c9d535b541c61538424259d60a..87c7d0e85b00670882b520d04340a2f5cff130b3 100644
+--- a/src/main/java/org/bukkit/craftbukkit/Main.java
++++ b/src/main/java/org/bukkit/craftbukkit/Main.java
+@@ -188,6 +188,14 @@ public class Main {
+                         .describedAs("Yml file");
+                 // Purpur end
+ 
++                // Dxtrus start
++                acceptsAll(asList("dxtrus", "dxtrus-settings"), "File for lamington settings")
++                    .withRequiredArg()
++                    .ofType(File.class)
++                    .defaultsTo(new File("lamington.yml"))
++                    .describedAs("Yml file");
++                // Dxtrus end
++
+                 // Paper start
+                 acceptsAll(asList("server-name"), "Name of the server")
+                         .withRequiredArg()
