@@ -1,0 +1,548 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ProdPreva1l <prod.preva1l@gmail.com>
+Date: Fri, 26 Apr 2024 15:40:30 +1000
+Subject: [PATCH] More API additions and rename heartbeat package
+
+
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 231cfac4069d4642e0068cc238661b0769eefb43..3babedea0f4b35dee792571e1a46740d452cb0e8 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -71,6 +71,11 @@ dependencies {
+     testCompileOnly(checkerQual)
+     // Paper end
+ 
++    // Lamington start - add lombok
++    implementation("org.projectlombok:lombok:1.18.28")
++    annotationProcessor("org.projectlombok:lombok:1.18.28")
++    // Lamington end
++
+     testImplementation("org.apache.commons:commons-lang3:3.12.0")
+     testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+     testImplementation("org.hamcrest:hamcrest:2.2")
+diff --git a/src/main/java/net/dxtrus/HeartBeat/HeartBeat.java b/src/main/java/net/dxtrus/heartbeat/HeartBeat.java
+similarity index 98%
+rename from src/main/java/net/dxtrus/HeartBeat/HeartBeat.java
+rename to src/main/java/net/dxtrus/heartbeat/HeartBeat.java
+index 893de993f92c94b93e5f00e2595012ca0da7da33..3466b11208500b00a9391004554cc11bce077976 100644
+--- a/src/main/java/net/dxtrus/HeartBeat/HeartBeat.java
++++ b/src/main/java/net/dxtrus/heartbeat/HeartBeat.java
+@@ -1,4 +1,4 @@
+-package net.dxtrus.HeartBeat;
++package net.dxtrus.heartbeat;
+ 
+ import com.google.gson.JsonObject;
+ import org.jetbrains.annotations.NotNull;
+diff --git a/src/main/java/net/dxtrus/utils/BasicConfig.java b/src/main/java/net/dxtrus/utils/BasicConfig.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..bde88b617c738aff45669ebee010e57662051c1f
+--- /dev/null
++++ b/src/main/java/net/dxtrus/utils/BasicConfig.java
+@@ -0,0 +1,80 @@
++package net.dxtrus.utils;
++
++import lombok.Getter;
++import lombok.Setter;
++import org.bukkit.configuration.file.YamlConfiguration;
++import org.bukkit.plugin.java.JavaPlugin;
++import java.io.File;
++import java.io.IOException;
++import java.util.Collections;
++import java.util.List;
++import java.util.logging.Level;
++
++@Getter
++@Setter
++@SuppressWarnings("unused")
++public class BasicConfig {
++    private final JavaPlugin plugin;
++    private final String fileName;
++    private YamlConfiguration configuration;
++
++    private File file;
++
++    public BasicConfig(JavaPlugin plugin, String fileName) {
++        this.plugin = plugin;
++        this.fileName = fileName;
++        this.file = new File(plugin.getDataFolder(), fileName);
++        if (!this.file.exists()) {
++            plugin.saveResource(fileName, false);
++        }
++        this.configuration = YamlConfiguration.loadConfiguration(this.file);
++    }
++
++    public boolean getBoolean(String path) {
++        return (this.configuration.contains(path)) && (this.configuration.getBoolean(path));
++    }
++
++    public double getDouble(String path) {
++        if (this.configuration.contains(path)) {
++            return this.configuration.getDouble(path);
++        }
++        return 0.0D;
++    }
++
++    public int getInt(String path) {
++        if (this.configuration.contains(path)) {
++            return this.configuration.getInt(path);
++        }
++        return 0;
++    }
++
++    public String getString(String path) {
++        if (this.configuration.contains(path)) {
++            return this.configuration.getString(path);
++        }
++        return path;
++    }
++
++    public List<String> getStringList(String path) {
++        if (this.configuration.contains(path)) {
++            return this.configuration.getStringList(path);
++        }
++        return Collections.singletonList(path);
++    }
++
++    public void load() {
++        this.file = new File(plugin.getDataFolder(), fileName);
++        if (!this.file.exists()) {
++            plugin.saveResource(fileName, false);
++        }
++        this.configuration = YamlConfiguration.loadConfiguration(this.file);
++    }
++
++    public void save() {
++        try {
++            this.configuration.save(this.file);
++        } catch (IOException e) {
++            plugin.getLogger().log(Level.SEVERE, String.format("Failed to save configuration file '%s': ", this.file.getName()), e);
++        }
++    }
++}
+diff --git a/src/main/java/net/dxtrus/utils/StringUtils.java b/src/main/java/net/dxtrus/utils/StringUtils.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..a47ffc663f4fd304944017d488b2505eeb768fab
+--- /dev/null
++++ b/src/main/java/net/dxtrus/utils/StringUtils.java
+@@ -0,0 +1,195 @@
++package net.dxtrus.utils;
++
++import net.kyori.adventure.text.Component;
++import net.kyori.adventure.text.minimessage.MiniMessage;
++import net.md_5.bungee.api.ChatColor;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.regex.Matcher;
++import java.util.regex.Pattern;
++
++/**
++ * String Formatting Helper.
++ * @deprecated renamed to {@link Text}
++ */
++@Deprecated(forRemoval = true)
++@SuppressWarnings("unused")
++public class StringUtils {
++    /**
++     * Colorize a list. (Useful for lore)
++     * @param list List typeof String
++     * @return Colorized List typeof String
++     */
++    public static List<String> colorizeList(List<String> list) {
++        if (list == null) return null;
++        if (list.isEmpty()) return null;
++        List<String> ret = new ArrayList<>();
++        for (String line : list) ret.add(colorize(line));
++        return ret;
++    }
++
++    private static final Pattern HEX_PATTERN = Pattern.compile("&#(\\w{5}[0-9a-fA-F])");
++
++    /**
++     * Colorize  a string.
++     * @param text String with color codes or hex codes.
++     * @return Colorized String
++     */
++    public static String colorize(String text) {
++        Matcher matcher = HEX_PATTERN.matcher(text);
++        StringBuilder buffer = new StringBuilder();
++
++        while(matcher.find()) {
++            matcher.appendReplacement(buffer, ChatColor.of("#" + matcher.group(1)).toString());
++        }
++
++        return ChatColor.translateAlternateColorCodes('&', matcher.appendTail(buffer).toString());
++    }
++
++    /**
++     * Strip color codes from a string. (Doesn't remove hex codes)
++     * @param str String with color codes.
++     * @return String without color codes.
++     */
++    public static String removeColorCodes(String str) {
++        return str.replaceAll("&(?! ).", "");
++    }
++
++    /**
++     * Capitalizes the first letter in a string.
++     * @param str String
++     * @return Capitalized String
++     */
++    public static String capitalize(String str) {
++        if (str == null || str.isEmpty()) {
++            return str;
++        }
++        return str.substring(0, 1).toUpperCase() + str.substring(1);
++    }
++
++    /**
++     * Converts legacy colour codes to MiniMessage
++     * @param message message with legacy codes
++     * @return string with mini message formatting (not colorized)
++     */
++    public static String legacyToMiniMessage(String message) {
++        //Codes AGHHHH MANUAL CONVERSION
++        message = message.replace("&4", "<dark_red>");
++        message = message.replace("&c", "<red>");
++        message = message.replace("&6", "<gold>");
++        message = message.replace("&e", "<yellow>");
++        message = message.replace("&2", "<dark_green>");
++        message = message.replace("&a", "<green>");
++        message = message.replace("&b", "<aqua>");
++        message = message.replace("&3", "<dark_aqua>");
++        message = message.replace("&1", "<dark_blue>");
++        message = message.replace("&9", "<blue>");
++        message = message.replace("&d", "<light_purple>");
++        message = message.replace("&d", "<purple>");
++        message = message.replace("&f", "<white>");
++        message = message.replace("&7", "<gray>");
++        message = message.replace("&8", "<dark_gray>");
++        message = message.replace("&0", "<black>");
++        message = message.replace("&l", "<b>");
++        message = message.replace("&k", "<obf>");
++        message = message.replace("&m", "<st>");
++        message = message.replace("&n", "<u>");
++        message = message.replace("&o", "<i>");
++        message = message.replace("&r", "<reset>");
++
++        //Hex
++        Matcher match = HEX_PATTERN.matcher(message);
++        String code = message;
++        while (match.find()) {
++            code = message.substring(match.start(),match.end());
++            code = code.replace("&", "<");
++            code = code + ">";
++        }
++        return message.replaceAll("&#[a-fA-F0-9]{6}", code);
++    }
++
++    public static List<String> lore(List<String> lore, Object... args) {
++        List<String> ret = new ArrayList<>();
++        for (String line : lore) ret.add(message(line).toString());
++        return ret;
++    }
++
++    /**
++     * Translate a legacy string list to minimessage
++     * @param list string list formatted with &4 format
++     * @return string list formatted with <\red> format
++     */
++    public static List<String> translateList(List<String> list) {
++        List<String> temp = new ArrayList<>();
++        list.forEach(line -> temp.add(legacyToMiniMessage(line)));
++        return temp;
++    }
++
++    /**
++     * Formats a string into a component.
++     * @param message string with mini message formatted colours and or placeholders
++     * @param args arguments for {@link StringUtils#formatPlaceholders(String, Object...)}
++     * @return formatted component
++     */
++    public static Component message(String message, Object... args) {
++        message = legacyToMiniMessage(message);
++
++        message = formatPlaceholders(message, args);
++
++        return MiniMessage.miniMessage().deserialize(message);
++    }
++
++    /**
++     * Formats Strings with placeholders
++     * @param message message with placeholders: {index}
++     * @param args things to replace with
++     * @return formatted string
++     */
++    public static String formatPlaceholders(String message, Object... args) {
++        for (int i = 0; i < args.length; i++) {
++            if (!message.contains("{" + i + "}")) {
++                continue;
++            }
++
++            message = message.replace("{" + i + "}", String.valueOf(args[i]));
++        }
++        return message;
++    }
++
++    /**
++     * If only Java had fucking extension methods I wouldn't need this class...
++     * @param haystack The string to compare
++     * @param needles The strings to check if they match the haystack, while ignoring case.
++     * @return true if one of the needles matches, false otherwise.
++     */
++    public static boolean equalsIgnoreCaseAny(String haystack, String... needles) {
++        if (needles.length < 1) {
++            return false;
++        }
++
++        for (String needle : needles) {
++            if (haystack.equalsIgnoreCase(needle)) {
++                return true;
++            }
++        }
++
++        return false;
++    }
++
++    /**
++     * Converts a Throwable to a string
++     * @param throwable just an exception
++     * @return string Formatted for a discord webhook
++     */
++    public static String stackTraceToString(Throwable throwable) {
++        StackTraceElement[] elements = throwable.getStackTrace();
++        StringBuilder builder = new StringBuilder("\n> " + throwable.getMessage() + ":\n");
++
++        for (StackTraceElement element : elements) {
++            builder.append('\n').append("`").append(element).append("`");
++        }
++
++        return builder.substring(1);
++    }
++
++}
+diff --git a/src/main/java/net/dxtrus/utils/Text.java b/src/main/java/net/dxtrus/utils/Text.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..acf1f53556cc75daa58bd12a53ccc07ca31c3160
+--- /dev/null
++++ b/src/main/java/net/dxtrus/utils/Text.java
+@@ -0,0 +1,194 @@
++package net.dxtrus.utils;
++
++import net.kyori.adventure.text.Component;
++import net.kyori.adventure.text.minimessage.MiniMessage;
++import net.md_5.bungee.api.ChatColor;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.regex.Matcher;
++import java.util.regex.Pattern;
++
++/**
++ * String Formatting Helper.
++ */
++@SuppressWarnings("unused")
++public class Text {
++    /**
++     * Colorize a list. (Useful for lore)
++     * @param list List typeof String
++     * @return Colorized List typeof String
++     */
++    public static List<String> colorizeList(List<String> list) {
++        if (list == null) return null;
++        if (list.isEmpty()) return null;
++        List<String> ret = new ArrayList<>();
++        for (String line : list) ret.add(colorize(line));
++        return ret;
++    }
++
++    private static final Pattern HEX_PATTERN = Pattern.compile("&#(\\w{5}[0-9a-fA-F])");
++
++    /**
++     * Colorize  a string.
++     * @param text String with color codes or hex codes.
++     * @return Colorized String
++     */
++    @SuppressWarnings("deprecation")
++    public static String colorize(String text) {
++        Matcher matcher = HEX_PATTERN.matcher(text);
++        StringBuilder buffer = new StringBuilder();
++
++        while(matcher.find()) {
++            matcher.appendReplacement(buffer, ChatColor.of("#" + matcher.group(1)).toString());
++        }
++
++        return ChatColor.translateAlternateColorCodes('&', matcher.appendTail(buffer).toString());
++    }
++
++    /**
++     * Strip color codes from a string. (Doesn't remove hex codes)
++     * @param str String with color codes.
++     * @return String without color codes.
++     */
++    public static String removeColorCodes(String str) {
++        return str.replaceAll("&(?! ).", "");
++    }
++
++    /**
++     * Capitalizes the first letter in a string.
++     * @param str String
++     * @return Capitalized String
++     */
++    public static String capitalize(String str) {
++        if (str == null || str.isEmpty()) {
++            return str;
++        }
++        return str.substring(0, 1).toUpperCase() + str.substring(1);
++    }
++
++    /**
++     * Converts legacy colour codes to MiniMessage
++     * @param message message with legacy codes
++     * @return string with mini message formatting (not colorized)
++     */
++    public static String legacyToMiniMessage(String message) {
++        //Codes AGHHHH MANUAL CONVERSION
++        message = message.replace("&4", "<dark_red>");
++        message = message.replace("&c", "<red>");
++        message = message.replace("&6", "<gold>");
++        message = message.replace("&e", "<yellow>");
++        message = message.replace("&2", "<dark_green>");
++        message = message.replace("&a", "<green>");
++        message = message.replace("&b", "<aqua>");
++        message = message.replace("&3", "<dark_aqua>");
++        message = message.replace("&1", "<dark_blue>");
++        message = message.replace("&9", "<blue>");
++        message = message.replace("&d", "<light_purple>");
++        message = message.replace("&d", "<purple>");
++        message = message.replace("&f", "<white>");
++        message = message.replace("&7", "<gray>");
++        message = message.replace("&8", "<dark_gray>");
++        message = message.replace("&0", "<black>");
++        message = message.replace("&l", "<b>");
++        message = message.replace("&k", "<obf>");
++        message = message.replace("&m", "<st>");
++        message = message.replace("&n", "<u>");
++        message = message.replace("&o", "<i>");
++        message = message.replace("&r", "<reset>");
++
++        //Hex
++        Matcher match = HEX_PATTERN.matcher(message);
++        String code = message;
++        while (match.find()) {
++            code = message.substring(match.start(),match.end());
++            code = code.replace("&", "<");
++            code = code + ">";
++        }
++        return message.replaceAll("&#[a-fA-F0-9]{6}", code);
++    }
++
++    public static List<String> lore(List<String> lore, Object... args) {
++        List<String> ret = new ArrayList<>();
++        for (String line : lore) ret.add(message(line).toString());
++        return ret;
++    }
++
++    /**
++     * Translate a legacy string list to minimessage
++     * @param list string list formatted with &4 format
++     * @return string list formatted with <\red> format
++     */
++    public static List<String> translateList(List<String> list) {
++        List<String> temp = new ArrayList<>();
++        list.forEach(line -> temp.add(legacyToMiniMessage(line)));
++        return temp;
++    }
++
++    /**
++     * Formats a string into a component.
++     * @param message string with mini message formatted colours and or placeholders
++     * @param args arguments for {@link Text#formatPlaceholders(String, Object...)}
++     * @return formatted component
++     */
++    public static Component message(String message, Object... args) {
++        message = legacyToMiniMessage(message);
++
++        message = formatPlaceholders(message, args);
++
++        return MiniMessage.miniMessage().deserialize(message);
++    }
++
++    /**
++     * Formats Strings with placeholders
++     * @param message message with placeholders: {index}
++     * @param args things to replace with
++     * @return formatted string
++     */
++    public static String formatPlaceholders(String message, Object... args) {
++        for (int i = 0; i < args.length; i++) {
++            if (!message.contains("{" + i + "}")) {
++                continue;
++            }
++
++            message = message.replace("{" + i + "}", String.valueOf(args[i]));
++        }
++        return message;
++    }
++
++    /**
++     * If only Java had fucking extension methods I wouldn't need this class...
++     * @param haystack The string to compare
++     * @param needles The strings to check if they match the haystack, while ignoring case.
++     * @return true if one of the needles matches, false otherwise.
++     */
++    public static boolean equalsIgnoreCaseAny(String haystack, String... needles) {
++        if (needles.length < 1) {
++            return false;
++        }
++
++        for (String needle : needles) {
++            if (haystack.equalsIgnoreCase(needle)) {
++                return true;
++            }
++        }
++
++        return false;
++    }
++
++    /**
++     * Converts a Throwable to a string
++     * @param throwable just an exception
++     * @return string Formatted for a discord webhook
++     */
++    public static String stackTraceToString(Throwable throwable) {
++        StackTraceElement[] elements = throwable.getStackTrace();
++        StringBuilder builder = new StringBuilder("\n> " + throwable.getMessage() + ":\n");
++
++        for (StackTraceElement element : elements) {
++            builder.append('\n').append("`").append(element).append("`");
++        }
++
++        return builder.substring(1);
++    }
++
++}
+diff --git a/src/main/java/org/bukkit/Bukkit.java b/src/main/java/org/bukkit/Bukkit.java
+index b2f0cf844b80a132bf830b41efdb2643d68eb948..821b5e6633cf8cd11c73ba7d029c84c80d97e212 100644
+--- a/src/main/java/org/bukkit/Bukkit.java
++++ b/src/main/java/org/bukkit/Bukkit.java
+@@ -14,7 +14,7 @@ import java.util.Set;
+ import java.util.UUID;
+ import java.util.function.Consumer;
+ import java.util.logging.Logger;
+-import net.dxtrus.HeartBeat.HeartBeat;
++import net.dxtrus.heartbeat.HeartBeat;
+ import org.bukkit.Warning.WarningState;
+ import org.bukkit.advancement.Advancement;
+ import org.bukkit.block.data.BlockData;
+diff --git a/src/main/java/org/bukkit/Server.java b/src/main/java/org/bukkit/Server.java
+index 5203e238f057992fb6bfb4abaf0d274686193d13..d020658c2bf783610a7aae4557f259af88b38bac 100644
+--- a/src/main/java/org/bukkit/Server.java
++++ b/src/main/java/org/bukkit/Server.java
+@@ -14,7 +14,7 @@ import java.util.Set;
+ import java.util.UUID;
+ import java.util.function.Consumer;
+ import java.util.logging.Logger;
+-import net.dxtrus.HeartBeat.HeartBeat;
++import net.dxtrus.heartbeat.HeartBeat;
+ import org.bukkit.Warning.WarningState;
+ import org.bukkit.advancement.Advancement;
+ import org.bukkit.block.data.BlockData;
