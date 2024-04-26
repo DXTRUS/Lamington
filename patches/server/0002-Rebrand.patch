@@ -5,7 +5,7 @@ Subject: [PATCH] Rebrand
 
 
 diff --git a/build.gradle.kts b/build.gradle.kts
-index 4517548e2c892c2e94f91e7449660f9e36b8f14e..1cad0728d005df9475a978b272adef9703f2ba46 100644
+index 4517548e2c892c2e94f91e7449660f9e36b8f14e..53e2d53bc0697103b37791a04616297fda79ffb5 100644
 --- a/build.gradle.kts
 +++ b/build.gradle.kts
 @@ -13,12 +13,12 @@ configurations.named(log4jPlugins.compileClasspathConfigurationName) {
@@ -54,8 +54,21 @@ index 4517548e2c892c2e94f91e7449660f9e36b8f14e..1cad0728d005df9475a978b272adef97
      mainClass.set("org.bukkit.craftbukkit.Main")
      standardInput = System.`in`
      workingDir = rootProject.layout.projectDirectory
+diff --git a/src/main/java/com/destroystokyo/paper/Metrics.java b/src/main/java/com/destroystokyo/paper/Metrics.java
+index 692c962193cf9fcc6801fc93f3220bdc673d527b..51f642e9f36588238abad266daeca3b5aab22239 100644
+--- a/src/main/java/com/destroystokyo/paper/Metrics.java
++++ b/src/main/java/com/destroystokyo/paper/Metrics.java
+@@ -593,7 +593,7 @@ public class Metrics {
+             boolean logFailedRequests = config.getBoolean("logFailedRequests", false);
+             // Only start Metrics, if it's enabled in the config
+             if (config.getBoolean("enabled", true)) {
+-                Metrics metrics = new Metrics("Pufferfish", serverUUID, logFailedRequests, Bukkit.getLogger()); // Pufferfish
++                Metrics metrics = new Metrics("Lamington", serverUUID, logFailedRequests, Bukkit.getLogger()); // Pufferfish // Lamington
+ 
+                 metrics.addCustomChart(new Metrics.SimplePie("minecraft_version", () -> {
+                     String minecraftVersion = Bukkit.getVersion();
 diff --git a/src/main/java/com/destroystokyo/paper/PaperVersionFetcher.java b/src/main/java/com/destroystokyo/paper/PaperVersionFetcher.java
-index 9d687da5bdf398bb3f6c84cdf1249a7213d09f2e..462a6eed350fd660ddaf25d567bb6e97b77d0b2b 100644
+index 9d687da5bdf398bb3f6c84cdf1249a7213d09f2e..7fd0512f87bba1408ed5e37c201d5b76039b9b16 100644
 --- a/src/main/java/com/destroystokyo/paper/PaperVersionFetcher.java
 +++ b/src/main/java/com/destroystokyo/paper/PaperVersionFetcher.java
 @@ -19,8 +19,10 @@ import java.util.stream.StreamSupport;
@@ -149,7 +162,7 @@ index 9d687da5bdf398bb3f6c84cdf1249a7213d09f2e..462a6eed350fd660ddaf25d567bb6e97
      }
  }
 diff --git a/src/main/java/com/destroystokyo/paper/console/PaperConsole.java b/src/main/java/com/destroystokyo/paper/console/PaperConsole.java
-index c5d5648f4ca603ef2b1df723b58f9caf4dd3c722..3cb56595822799926a8141e60a42f5d1edfc6de5 100644
+index c5d5648f4ca603ef2b1df723b58f9caf4dd3c722..89e3ab7e010e8314e86df36828d15e4323fb2aa7 100644
 --- a/src/main/java/com/destroystokyo/paper/console/PaperConsole.java
 +++ b/src/main/java/com/destroystokyo/paper/console/PaperConsole.java
 @@ -17,7 +17,7 @@ public final class PaperConsole extends SimpleTerminalConsole {
@@ -177,7 +190,7 @@ index 99c5038672b09d0874125e3df280174c1e8151e6..f91ea723a1c85f6cf8c4f6dd7f182b94
          stringbuilder.append(CrashReport.getErrorComment());
          stringbuilder.append("\n\n");
 diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
-index 07319732c76473589774c90edf8a1f1ba4b26d04..b2dd76b79660126cac3b995e9ca2f88dc70937ff 100644
+index b9e0a32f5829ca15f949effcafcbe2a975f6f690..9094dacbdac148062f9f600556fe6588a6ae75f9 100644
 --- a/src/main/java/net/minecraft/server/MinecraftServer.java
 +++ b/src/main/java/net/minecraft/server/MinecraftServer.java
 @@ -953,7 +953,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
@@ -199,7 +212,7 @@ index 07319732c76473589774c90edf8a1f1ba4b26d04..b2dd76b79660126cac3b995e9ca2f88d
  
      public SystemReport fillSystemReport(SystemReport details) {
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
-index 18bfe2fb7efad66f5fae07a30593d640c597bf77..86c234c123fac96b4f94873d1dcfab30e9835e43 100644
+index 18bfe2fb7efad66f5fae07a30593d640c597bf77..cd599f4d38afa591d7db99e18c01a92b77788bd4 100644
 --- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 +++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 @@ -266,7 +266,7 @@ import javax.annotation.Nullable; // Paper
@@ -291,7 +304,7 @@ index 80553face9c70c2a3d897681e7761df85b22d464..99597258e8e88cd9e2c901c4ac3ff7fa
  
          if (stream != null) {
 diff --git a/src/main/java/org/spigotmc/WatchdogThread.java b/src/main/java/org/spigotmc/WatchdogThread.java
-index 9e638f72f180ff5ef63ec3dd6cf548c53f7bd4a5..f7296691cb4af7814de1520347b307ff209082e4 100644
+index 9e638f72f180ff5ef63ec3dd6cf548c53f7bd4a5..1a10d12a4f08e6e170382da1746a4c70ab033b3f 100644
 --- a/src/main/java/org/spigotmc/WatchdogThread.java
 +++ b/src/main/java/org/spigotmc/WatchdogThread.java
 @@ -96,7 +96,7 @@ public final class WatchdogThread extends io.papermc.paper.util.TickThread // Pa

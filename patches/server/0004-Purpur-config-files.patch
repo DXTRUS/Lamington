@@ -5,18 +5,9 @@ Subject: [PATCH] Purpur config files
 
 
 diff --git a/src/main/java/com/destroystokyo/paper/Metrics.java b/src/main/java/com/destroystokyo/paper/Metrics.java
-index 692c962193cf9fcc6801fc93f3220bdc673d527b..8cde30544e14f8fc2dac32966ae3c21f8cf3a551 100644
+index 51f642e9f36588238abad266daeca3b5aab22239..889ed1d0b993676b3ba14640b6931ae6d851e881 100644
 --- a/src/main/java/com/destroystokyo/paper/Metrics.java
 +++ b/src/main/java/com/destroystokyo/paper/Metrics.java
-@@ -593,7 +593,7 @@ public class Metrics {
-             boolean logFailedRequests = config.getBoolean("logFailedRequests", false);
-             // Only start Metrics, if it's enabled in the config
-             if (config.getBoolean("enabled", true)) {
--                Metrics metrics = new Metrics("Pufferfish", serverUUID, logFailedRequests, Bukkit.getLogger()); // Pufferfish
-+                Metrics metrics = new Metrics("Purpur", serverUUID, logFailedRequests, Bukkit.getLogger()); // Pufferfish // Purpur
- 
-                 metrics.addCustomChart(new Metrics.SimplePie("minecraft_version", () -> {
-                     String minecraftVersion = Bukkit.getVersion();
 @@ -602,16 +602,8 @@ public class Metrics {
                  }));
  
@@ -92,7 +83,7 @@ index 435b129c433704c24828d8fb57e14333c9423207..aa47b0af34cff5eaa638d6c24c718d02
          io.papermc.paper.brigadier.PaperBrigadierProviderImpl.INSTANCE.getClass(); // Paper - init PaperBrigadierProvider
          gg.pufferfish.pufferfish.PufferfishConfig.load(); // Pufferfish
 diff --git a/src/main/java/net/minecraft/world/level/Level.java b/src/main/java/net/minecraft/world/level/Level.java
-index 9f5cde72a5305572202c316e750ad1b5e778fd87..1513300064314a761adf4a08cc72782ec93947d1 100644
+index fc32b6342b7553265f2a012f91f4dd9c0386f8f2..4dcf00f17fb519b0728d80e8a692998f484ee779 100644
 --- a/src/main/java/net/minecraft/world/level/Level.java
 +++ b/src/main/java/net/minecraft/world/level/Level.java
 @@ -173,6 +173,7 @@ public abstract class Level implements LevelAccessor, AutoCloseable {
@@ -112,7 +103,7 @@ index 9f5cde72a5305572202c316e750ad1b5e778fd87..1513300064314a761adf4a08cc72782e
          this.world = new CraftWorld((ServerLevel) this, gen, biomeProvider, env);
  
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
-index 86c234c123fac96b4f94873d1dcfab30e9835e43..f36a87ba93da564b3b2c8b9f9190f8853557bdcd 100644
+index cd599f4d38afa591d7db99e18c01a92b77788bd4..7a71570ac915db3718d616db2da0f4c687cdb44b 100644
 --- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 +++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 @@ -1054,6 +1054,7 @@ public final class CraftServer implements Server {
@@ -159,7 +150,7 @@ index 86c234c123fac96b4f94873d1dcfab30e9835e43..f36a87ba93da564b3b2c8b9f9190f885
          public void restart() {
              org.spigotmc.RestartCommand.restart();
 diff --git a/src/main/java/org/bukkit/craftbukkit/Main.java b/src/main/java/org/bukkit/craftbukkit/Main.java
-index ce341f42b3a5e17fb6d1f7de8057e73137ae2a6e..8576ae1f811bdb7fb4f356bcce2e29181838d8ce 100644
+index 8d626fadcd4743b6472a2954d2b1b2ec89669814..7ddb48334750ec8a21b4baf6a90eeb3fc615a9f6 100644
 --- a/src/main/java/org/bukkit/craftbukkit/Main.java
 +++ b/src/main/java/org/bukkit/craftbukkit/Main.java
 @@ -174,6 +174,14 @@ public class Main {
