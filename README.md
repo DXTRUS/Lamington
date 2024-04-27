@@ -56,10 +56,3 @@ See [PaperMC/Paper](https://github.com/PaperMC/Paper), and [PaperMC/Paperweight]
 ## bStats
 Still waiting for bstats to give us a server impl id!
 //[![bStats Graph Data](https://bstats.org/signatures/server-implementation/Purpur.svg)](https://bstats.org/plugin/server-implementation/Purpur)
-
-
-## API
-
-Coming Soon!
-
-Yes, this also includes all API provided by Paper, Spigot, and Bukkit.
