@@ -20,8 +20,8 @@ All patches are licensed under the MIT license, unless otherwise noted in the pa
 See [PaperMC/Paper](https://github.com/PaperMC/Paper), and [PaperMC/Paperweight](https://github.com/PaperMC/paperweight) for the license of material used by this project.
 
 ## bStats
-
-[![bStats Graph Data](https://bstats.org/signatures/server-implementation/Purpur.svg)](https://bstats.org/plugin/server-implementation/Purpur)
+Still waiting for bstats to give us a server impl id!
+//[![bStats Graph Data](https://bstats.org/signatures/server-implementation/Purpur.svg)](https://bstats.org/plugin/server-implementation/Purpur)
 
 
 ## API
