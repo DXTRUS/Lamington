@@ -89,8 +89,8 @@ paperweight {
 allprojects {
     publishing {
         repositories {
-            maven("https://maven.asdev.info/releases") {
-                name = "dxtrusReleases"
+            maven("https://maven.asdev.info/public") {
+                name = "dxtrusPublic"
                 credentials(PasswordCredentials::class)
             }
         }
