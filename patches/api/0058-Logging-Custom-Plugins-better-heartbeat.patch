@@ -1,0 +1,714 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ProdPreva1l <prod.preva1l@gmail.com>
+Date: Sun, 28 Apr 2024 04:15:15 +1000
+Subject: [PATCH] Logging, Custom Plugins & better heartbeat
+
+
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 3babedea0f4b35dee792571e1a46740d452cb0e8..8559d0dffb9b364e25043460d80842f8beec598e 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -72,6 +72,7 @@ dependencies {
+     // Paper end
+ 
+     // Lamington start - add lombok
++    implementation("redis.clients:jedis:5.1.0")
+     implementation("org.projectlombok:lombok:1.18.28")
+     annotationProcessor("org.projectlombok:lombok:1.18.28")
+     // Lamington end
+diff --git a/src/main/java/net/dxtrus/LamingtonPlugin.java b/src/main/java/net/dxtrus/LamingtonPlugin.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..6f9db8459e2e0b52e843dc0192bceb6cb50cdf96
+--- /dev/null
++++ b/src/main/java/net/dxtrus/LamingtonPlugin.java
+@@ -0,0 +1,47 @@
++package net.dxtrus;
++
++import net.dxtrus.logger.LamingtonLogger;
++import net.dxtrus.utils.BungeeMessenger;
++import org.bukkit.plugin.java.JavaPlugin;
++import org.jetbrains.annotations.NotNull;
++
++public abstract class LamingtonPlugin extends JavaPlugin {
++    private static LamingtonLogger console;
++    private BungeeMessenger bungeeMessenger;
++
++    public abstract void startPlugin();
++    public abstract void stopPlugin();
++
++    @Override
++    public void onEnable() {
++        this.startPlugin();
++
++        console = new LamingtonLogger(this);
++        bungeeMessenger = new BungeeMessenger(this);
++        getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
++    }
++    @Override
++    public void onDisable() {
++        this.stopPlugin();
++    }
++
++    /**
++     * Get the instance of {@link BungeeMessenger}
++     * makes one if none exists
++     * @return bungee messenger
++     */
++    @NotNull
++    public BungeeMessenger getBungeeMessenger() {
++        return bungeeMessenger;
++    }
++
++    /**
++     * Get the instance of {@link LamingtonLogger}
++     * makes one if none exists
++     * @return Lamington logger
++     */
++    @NotNull
++    public LamingtonLogger getConsole() {
++        return console;
++    }
++}
+diff --git a/src/main/java/net/dxtrus/utils/BasicConfig.java b/src/main/java/net/dxtrus/configuration/BasicConfig.java
+similarity index 52%
+rename from src/main/java/net/dxtrus/utils/BasicConfig.java
+rename to src/main/java/net/dxtrus/configuration/BasicConfig.java
+index bde88b617c738aff45669ebee010e57662051c1f..c6597cd2c201987fdedc56e79f331a73bd64a3bd 100644
+--- a/src/main/java/net/dxtrus/utils/BasicConfig.java
++++ b/src/main/java/net/dxtrus/configuration/BasicConfig.java
+@@ -1,17 +1,14 @@
+-package net.dxtrus.utils;
++package net.dxtrus.configuration;
+ 
+-import lombok.Getter;
+-import lombok.Setter;
+ import org.bukkit.configuration.file.YamlConfiguration;
+ import org.bukkit.plugin.java.JavaPlugin;
++import org.jetbrains.annotations.NotNull;
+ import java.io.File;
+ import java.io.IOException;
+ import java.util.Collections;
+ import java.util.List;
+ import java.util.logging.Level;
+ 
+-@Getter
+-@Setter
+ @SuppressWarnings("unused")
+ public class BasicConfig {
+     private final JavaPlugin plugin;
+@@ -20,7 +17,12 @@ public class BasicConfig {
+ 
+     private File file;
+ 
+-    public BasicConfig(JavaPlugin plugin, String fileName) {
++    /**
++     * Instantiate a new basic config
++     * @param plugin your plugin
++     * @param fileName the file in your plugins resources folder
++     */
++    public BasicConfig(@NotNull JavaPlugin plugin, @NotNull String fileName) {
+         this.plugin = plugin;
+         this.fileName = fileName;
+         this.file = new File(plugin.getDataFolder(), fileName);
+@@ -30,38 +32,68 @@ public class BasicConfig {
+         this.configuration = YamlConfiguration.loadConfiguration(this.file);
+     }
+ 
+-    public boolean getBoolean(String path) {
++    /**
++     * Get a boolean from a path
++     * @param path yaml path
++     * @return the boolean at the location or false if it does not exist
++     */
++    public boolean getBoolean(@NotNull String path) {
+         return (this.configuration.contains(path)) && (this.configuration.getBoolean(path));
+     }
+ 
+-    public double getDouble(String path) {
++    /**
++     * Get a double from a path
++     * @param path yaml path
++     * @return the double at the location or 0.0D if it does not exist
++     */
++    public double getDouble(@NotNull String path) {
+         if (this.configuration.contains(path)) {
+             return this.configuration.getDouble(path);
+         }
+         return 0.0D;
+     }
+ 
+-    public int getInt(String path) {
++    /**
++     * Get an integer from a path
++     * @param path yaml path
++     * @return the integer at the location or 0 if it does not exist
++     */
++    public int getInt(@NotNull String path) {
+         if (this.configuration.contains(path)) {
+             return this.configuration.getInt(path);
+         }
+         return 0;
+     }
+ 
+-    public String getString(String path) {
++    /**
++     * Get a string from a path
++     * @param path yaml path
++     * @return the string at the location or the path if it does not exist
++     */
++    @NotNull
++    public String getString(@NotNull String path) {
+         if (this.configuration.contains(path)) {
+             return this.configuration.getString(path);
+         }
+         return path;
+     }
+ 
+-    public List<String> getStringList(String path) {
++    /**
++     * Get a string list from a path
++     * @param path yaml path
++     * @return the string list at the location or singleton list of containing the path if it does not exist
++     */
++    @NotNull
++    public List<String> getStringList(@NotNull String path) {
+         if (this.configuration.contains(path)) {
+             return this.configuration.getStringList(path);
+         }
+         return Collections.singletonList(path);
+     }
+ 
++    /**
++     * load the configuration, also a reload function
++     */
+     public void load() {
+         this.file = new File(plugin.getDataFolder(), fileName);
+         if (!this.file.exists()) {
+@@ -70,6 +102,9 @@ public class BasicConfig {
+         this.configuration = YamlConfiguration.loadConfiguration(this.file);
+     }
+ 
++    /**
++     * Save configuration from the loaded memory values
++     */
+     public void save() {
+         try {
+             this.configuration.save(this.file);
+@@ -77,4 +112,15 @@ public class BasicConfig {
+             plugin.getLogger().log(Level.SEVERE, String.format("Failed to save configuration file '%s': ", this.file.getName()), e);
+         }
+     }
++
++    // Getters bc papers api tests dont like getters and setters from lombok
++
++    /**
++     * The base YamlConfig
++     * @return yaml config
++     */
++    @NotNull
++    public YamlConfiguration getConfiguration() {
++        return configuration;
++    }
+ }
+diff --git a/src/main/java/net/dxtrus/heartbeat/HeartBeat.java b/src/main/java/net/dxtrus/heartbeat/HeartBeat.java
+index 3466b11208500b00a9391004554cc11bce077976..a659102f150d02925ae2d9bca6c2359771ac4f3b 100644
+--- a/src/main/java/net/dxtrus/heartbeat/HeartBeat.java
++++ b/src/main/java/net/dxtrus/heartbeat/HeartBeat.java
+@@ -1,8 +1,11 @@
+ package net.dxtrus.heartbeat;
+ 
+ import com.google.gson.JsonObject;
++import org.jetbrains.annotations.ApiStatus;
+ import org.jetbrains.annotations.NotNull;
+ import org.jetbrains.annotations.Nullable;
++import redis.clients.jedis.Jedis;
++import redis.clients.jedis.util.Pool;
+ import java.util.Map;
+ 
+ public interface HeartBeat {
+@@ -33,7 +36,7 @@ public interface HeartBeat {
+      * @param server server to get
+      * @return int of player count
+      */
+-    @Nullable
++    @NotNull
+     Integer getPlayerCount(@NotNull String server);
+ 
+     /**
+@@ -41,7 +44,7 @@ public interface HeartBeat {
+      * @param server server to get
+      * @return double of tps
+      */
+-    @Nullable
++    @NotNull
+     Double getTPS(@NotNull String server);
+ 
+     /**
+@@ -49,7 +52,7 @@ public interface HeartBeat {
+      * @param server server to get
+      * @return double of mspt
+      */
+-    @Nullable
++    @NotNull
+     Double getMSPT(@NotNull String server);
+ 
+     /**
+@@ -57,7 +60,7 @@ public interface HeartBeat {
+      * @param server server to check
+      * @return boolean true if the server is online false if not
+      */
+-    @Nullable
++    @NotNull
+     Boolean isOnline(@NotNull String server);
+ 
+     /**
+@@ -70,7 +73,7 @@ public interface HeartBeat {
+      * @param server server to get
+      * @return double of tps
+      */
+-    @Nullable
++    @NotNull
+     Long[] getOnlineTime(@NotNull String server);
+ 
+     /**
+@@ -78,7 +81,7 @@ public interface HeartBeat {
+      * @param server server to check
+      * @return time in epoch milli
+      */
+-    @Nullable
++    @NotNull
+     Long getLastHeartbeat(@NotNull String server);
+ 
+     /**
+@@ -86,6 +89,12 @@ public interface HeartBeat {
+      * @param server server to check
+      * @return time in epoch milli
+      */
+-    @Nullable
++    @NotNull
+     Long getStartTime(@NotNull String server);
++
++    @NotNull
++    ServerType getServerType(@NotNull String server);
++
++    @Nullable
++    Pool<Jedis> getPool();
+ }
+diff --git a/src/main/java/net/dxtrus/heartbeat/ServerType.java b/src/main/java/net/dxtrus/heartbeat/ServerType.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..36d60f9fea3bbc1f88617ad55e331a0689f74f79
+--- /dev/null
++++ b/src/main/java/net/dxtrus/heartbeat/ServerType.java
+@@ -0,0 +1,34 @@
++package net.dxtrus.heartbeat;
++
++import lombok.AllArgsConstructor;
++import org.jetbrains.annotations.NotNull;
++
++@AllArgsConstructor
++public enum ServerType {
++    OTHER(0),
++    LOBBY(1),
++    SURVIVAL_ZONE(2),
++    SURVIVAL_SPAWN(3),
++    SKYBLOCK_ISLAND(4),
++    SKYBLOCK_GENERIC(5),
++    ;
++
++    private final int id;
++
++    /**
++     * Get the id of the server type
++     * @return the id of the server type
++     */
++    @NotNull
++    public Integer getId() {
++        return id;
++    }
++
++    @NotNull
++    public static ServerType fromId(@NotNull Integer id) {
++        for (ServerType serverType : ServerType.values()) {
++            if (serverType.id == id) return serverType;
++        }
++        throw new IllegalArgumentException("ServerType for ID " + id + " not found!");
++    }
++}
+diff --git a/src/main/java/net/dxtrus/logger/LamingtonDiscordLogger.java b/src/main/java/net/dxtrus/logger/LamingtonDiscordLogger.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..f55bb112f0d3dfa2b8bb25ded72d192a817110b3
+--- /dev/null
++++ b/src/main/java/net/dxtrus/logger/LamingtonDiscordLogger.java
+@@ -0,0 +1,32 @@
++package net.dxtrus.logger;
++
++import org.jetbrains.annotations.NotNull;
++
++public interface LamingtonDiscordLogger {
++    /**
++     * Log info to discord via webook
++     * @param message the message to log
++     */
++    void info(@NotNull String message);
++
++    /**
++     * Warn info to discord via webook
++     * @param message the message to log
++     */
++    void warn(@NotNull String message);
++
++    /**
++     * Log severe error to discord via webook
++     * @param message the message to log
++     */
++    void severe(@NotNull String message);
++
++    /**
++     * Log severe error to discord via webook
++     * @param message the message to log
++     * @param exception the exception that threw the error
++     */
++    void severe(@NotNull String message, @NotNull Exception exception);
++
++    boolean isEnabled();
++}
+diff --git a/src/main/java/net/dxtrus/logger/LamingtonLogger.java b/src/main/java/net/dxtrus/logger/LamingtonLogger.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..b7ba8ce1b82caf5c1b7f12ecc27ec2face10e7c9
+--- /dev/null
++++ b/src/main/java/net/dxtrus/logger/LamingtonLogger.java
+@@ -0,0 +1,65 @@
++package net.dxtrus.logger;
++
++import net.dxtrus.LamingtonPlugin;
++import org.bukkit.Bukkit;
++import org.jetbrains.annotations.NotNull;
++import java.util.logging.Level;
++import java.util.logging.Logger;
++
++public class LamingtonLogger {
++
++    private static Logger consoleLogger;
++
++    /**
++     * Instantiate the logger
++     * @param plugin your plugin
++     */
++    public LamingtonLogger(@NotNull LamingtonPlugin plugin) {
++        consoleLogger = plugin.getLogger();
++    }
++
++    /**
++     * Log a message to console (and if enabled discord)
++     * @param message the message to log
++     */
++    public void info(@NotNull String message) {
++        consoleLogger.log(Level.INFO, message);
++        if (Bukkit.getLamingtonDiscordLogger() != null && Bukkit.getLamingtonDiscordLogger().isEnabled()) {
++            Bukkit.getLamingtonDiscordLogger().info(message);
++        }
++    }
++
++    /**
++     * Log a warning to console (and if enabled discord)
++     * @param message the message to log
++     */
++    public void warn(@NotNull String message) {
++        consoleLogger.log(Level.WARNING, message);
++        if (Bukkit.getLamingtonDiscordLogger() != null && Bukkit.getLamingtonDiscordLogger().isEnabled()) {
++            Bukkit.getLamingtonDiscordLogger().warn(message);
++        }
++    }
++
++    /**
++     * Log a severe error to console (and if enabled discord)
++     * @param message a short description of the error
++     */
++    public void severe(@NotNull String message) {
++        consoleLogger.log(Level.SEVERE, message);
++        if (Bukkit.getLamingtonDiscordLogger() != null && Bukkit.getLamingtonDiscordLogger().isEnabled()) {
++            Bukkit.getLamingtonDiscordLogger().severe(message);
++        }
++    }
++
++    /**
++     * Log a severe error to console (and if enabled discord)
++     * @param message a short description of the error
++     * @param exception the exception
++     */
++    public void severe(@NotNull String message, @NotNull Exception exception) {
++        consoleLogger.log(Level.SEVERE, message, exception);
++        if (Bukkit.getLamingtonDiscordLogger() != null && Bukkit.getLamingtonDiscordLogger().isEnabled()) {
++            Bukkit.getLamingtonDiscordLogger().severe(message, exception);
++        }
++    }
++}
+diff --git a/src/main/java/net/dxtrus/utils/BungeeMessenger.java b/src/main/java/net/dxtrus/utils/BungeeMessenger.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..bd2437df8708ba371328d13193b8a92be273cc75
+--- /dev/null
++++ b/src/main/java/net/dxtrus/utils/BungeeMessenger.java
+@@ -0,0 +1,43 @@
++package net.dxtrus.utils;
++
++import com.google.common.io.ByteArrayDataInput;
++import com.google.common.io.ByteArrayDataOutput;
++import com.google.common.io.ByteStreams;
++import net.dxtrus.LamingtonPlugin;
++import org.bukkit.entity.Player;
++import org.bukkit.plugin.messaging.PluginMessageListener;
++import org.jetbrains.annotations.NotNull;
++
++public class BungeeMessenger implements PluginMessageListener {
++    private final LamingtonPlugin plugin;
++
++    /**
++     * Instantiate bungeemessenger
++     * @param plugin your plugin
++     */
++    public BungeeMessenger(@NotNull LamingtonPlugin plugin) {
++        this.plugin = plugin;
++    }
++
++    @Override
++    public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte @NotNull [] message) {
++        if (!channel.equals("BungeeCord")) {
++            return;
++        }
++        ByteArrayDataInput in = ByteStreams.newDataInput(message);
++        String subchannel = in.readUTF();
++        // TODO: Implement this in anyway we need
++    }
++
++    /**
++     * Connects a player to another server on their current proxy.
++     * @param player Player to transfer
++     * @param server Server to transfer to
++     */
++    public void connect(@NotNull Player player, @NotNull String server) {
++        ByteArrayDataOutput output = ByteStreams.newDataOutput();
++        output.writeUTF("Connect");
++        output.writeUTF(server);
++        player.sendPluginMessage(plugin, "BungeeCord", output.toByteArray());
++    }
++}
+diff --git a/src/main/java/net/dxtrus/utils/Text.java b/src/main/java/net/dxtrus/utils/Text.java
+index acf1f53556cc75daa58bd12a53ccc07ca31c3160..ce3275a1bde7b7b40190625a74a47dea1ea011d6 100644
+--- a/src/main/java/net/dxtrus/utils/Text.java
++++ b/src/main/java/net/dxtrus/utils/Text.java
+@@ -3,6 +3,9 @@ package net.dxtrus.utils;
+ import net.kyori.adventure.text.Component;
+ import net.kyori.adventure.text.minimessage.MiniMessage;
+ import net.md_5.bungee.api.ChatColor;
++import org.checkerframework.checker.units.qual.N;
++import org.jetbrains.annotations.NotNull;
++import org.jetbrains.annotations.Nullable;
+ import java.util.ArrayList;
+ import java.util.List;
+ import java.util.regex.Matcher;
+@@ -18,9 +21,11 @@ public class Text {
+      * @param list List typeof String
+      * @return Colorized List typeof String
+      */
+-    public static List<String> colorizeList(List<String> list) {
+-        if (list == null) return null;
+-        if (list.isEmpty()) return null;
++    @NotNull
++    public static List<String> colorizeList(@NotNull List<String> list) {
++        if (list.isEmpty()) {
++            return list;
++        }
+         List<String> ret = new ArrayList<>();
+         for (String line : list) ret.add(colorize(line));
+         return ret;
+@@ -34,7 +39,11 @@ public class Text {
+      * @return Colorized String
+      */
+     @SuppressWarnings("deprecation")
+-    public static String colorize(String text) {
++    @NotNull
++    public static String colorize(@NotNull String text) {
++        if (text.isEmpty()) {
++            return text;
++        }
+         Matcher matcher = HEX_PATTERN.matcher(text);
+         StringBuilder buffer = new StringBuilder();
+ 
+@@ -50,7 +59,11 @@ public class Text {
+      * @param str String with color codes.
+      * @return String without color codes.
+      */
+-    public static String removeColorCodes(String str) {
++    @NotNull
++    public static String removeColorCodes(@NotNull String str) {
++        if (str.isEmpty()) {
++            return str;
++        }
+         return str.replaceAll("&(?! ).", "");
+     }
+ 
+@@ -59,8 +72,9 @@ public class Text {
+      * @param str String
+      * @return Capitalized String
+      */
+-    public static String capitalize(String str) {
+-        if (str == null || str.isEmpty()) {
++    @NotNull
++    public static String capitalize(@NotNull String str) {
++        if (str.isEmpty()) {
+             return str;
+         }
+         return str.substring(0, 1).toUpperCase() + str.substring(1);
+@@ -71,7 +85,12 @@ public class Text {
+      * @param message message with legacy codes
+      * @return string with mini message formatting (not colorized)
+      */
+-    public static String legacyToMiniMessage(String message) {
++    @NotNull
++    public static String legacyToMiniMessage(@NotNull String message) {
++        if (message.isEmpty()) {
++            return message;
++        }
++
+         //Codes AGHHHH MANUAL CONVERSION
+         message = message.replace("&4", "<dark_red>");
+         message = message.replace("&c", "<red>");
+@@ -107,9 +126,20 @@ public class Text {
+         return message.replaceAll("&#[a-fA-F0-9]{6}", code);
+     }
+ 
+-    public static List<String> lore(List<String> lore, Object... args) {
++    /**
++     * Convert a string list into a colorful lore and replace the placeholders
++     * Equivalent to {@link Text#message(String, Object...)} but for a list
++     * @param lore the string list to change to lore
++     * @param args the args for {@link Text#formatPlaceholders(String, Object...)}
++     * @return the lore coloured and formatted
++     */
++    @NotNull
++    public static List<String> lore(@NotNull List<String> lore, @NotNull Object... args) {
++        if (lore.isEmpty()) {
++            return lore;
++        }
+         List<String> ret = new ArrayList<>();
+-        for (String line : lore) ret.add(message(line).toString());
++        for (String line : lore) ret.add(message(line));
+         return ret;
+     }
+ 
+@@ -118,19 +148,34 @@ public class Text {
+      * @param list string list formatted with &4 format
+      * @return string list formatted with <\red> format
+      */
+-    public static List<String> translateList(List<String> list) {
++    @NotNull
++    public static List<String> translateList(@NotNull List<String> list) {
+         List<String> temp = new ArrayList<>();
+         list.forEach(line -> temp.add(legacyToMiniMessage(line)));
+         return temp;
+     }
+ 
++    /**
++     * Formats a string into a string.
++     * @param message string with mini message formatted colours and or placeholders
++     * @param args arguments for {@link Text#formatPlaceholders(String, Object...)}
++     * @return formatted string
++     */
++    @NotNull
++    public static String message(@NotNull String message, @NotNull Object... args) {
++        message = formatPlaceholders(message, args);
++
++        return colorize(message);
++    }
++
+     /**
+      * Formats a string into a component.
+      * @param message string with mini message formatted colours and or placeholders
+      * @param args arguments for {@link Text#formatPlaceholders(String, Object...)}
+      * @return formatted component
+      */
+-    public static Component message(String message, Object... args) {
++    @NotNull
++    public static Component miniMessage(@NotNull String message, @NotNull Object... args) {
+         message = legacyToMiniMessage(message);
+ 
+         message = formatPlaceholders(message, args);
+@@ -144,7 +189,8 @@ public class Text {
+      * @param args things to replace with
+      * @return formatted string
+      */
+-    public static String formatPlaceholders(String message, Object... args) {
++    @NotNull
++    public static String formatPlaceholders(@NotNull String message, @NotNull Object... args) {
+         for (int i = 0; i < args.length; i++) {
+             if (!message.contains("{" + i + "}")) {
+                 continue;
+@@ -161,8 +207,8 @@ public class Text {
+      * @param needles The strings to check if they match the haystack, while ignoring case.
+      * @return true if one of the needles matches, false otherwise.
+      */
+-    public static boolean equalsIgnoreCaseAny(String haystack, String... needles) {
+-        if (needles.length < 1) {
++    public static boolean equalsIgnoreCaseAny(@Nullable String haystack, @NotNull String... needles) {
++        if (haystack == null || needles == null || needles.length < 1) {
+             return false;
+         }
+ 
+@@ -180,7 +226,8 @@ public class Text {
+      * @param throwable just an exception
+      * @return string Formatted for a discord webhook
+      */
+-    public static String stackTraceToString(Throwable throwable) {
++    @NotNull
++    public static String stackTraceToString(@NotNull Throwable throwable) {
+         StackTraceElement[] elements = throwable.getStackTrace();
+         StringBuilder builder = new StringBuilder("\n> " + throwable.getMessage() + ":\n");
+ 
+diff --git a/src/main/java/org/bukkit/Bukkit.java b/src/main/java/org/bukkit/Bukkit.java
+index 821b5e6633cf8cd11c73ba7d029c84c80d97e212..a52d3286201102963e11c53f4e2bda0526edbf3b 100644
+--- a/src/main/java/org/bukkit/Bukkit.java
++++ b/src/main/java/org/bukkit/Bukkit.java
+@@ -15,6 +15,7 @@ import java.util.UUID;
+ import java.util.function.Consumer;
+ import java.util.logging.Logger;
+ import net.dxtrus.heartbeat.HeartBeat;
++import net.dxtrus.logger.LamingtonDiscordLogger;
+ import org.bukkit.Warning.WarningState;
+ import org.bukkit.advancement.Advancement;
+ import org.bukkit.block.data.BlockData;
+@@ -3018,5 +3019,14 @@ public final class Bukkit {
+     public static HeartBeat getHeartBeat() {
+         return server.getHeartBeat();
+     }
++
++    /**
++     * Get the discord logger
++     * @return the discord logger
++     */
++    @Nullable
++    public static LamingtonDiscordLogger getLamingtonDiscordLogger() {
++        return server.getLamingtonDiscordLogger();
++    }
+     // Lamington end
+ }
+diff --git a/src/main/java/org/bukkit/Server.java b/src/main/java/org/bukkit/Server.java
+index d020658c2bf783610a7aae4557f259af88b38bac..8cbf34e5a5157bf208623c8a3daf8065ecf69e82 100644
+--- a/src/main/java/org/bukkit/Server.java
++++ b/src/main/java/org/bukkit/Server.java
+@@ -15,6 +15,7 @@ import java.util.UUID;
+ import java.util.function.Consumer;
+ import java.util.logging.Logger;
+ import net.dxtrus.heartbeat.HeartBeat;
++import net.dxtrus.logger.LamingtonDiscordLogger;
+ import org.bukkit.Warning.WarningState;
+ import org.bukkit.advancement.Advancement;
+ import org.bukkit.block.data.BlockData;
+@@ -2638,5 +2639,8 @@ public interface Server extends PluginMessageRecipient, net.kyori.adventure.audi
+      */
+     @Nullable
+     HeartBeat getHeartBeat();
++
++    @Nullable
++    LamingtonDiscordLogger getLamingtonDiscordLogger();
+     // Lamington end
+ }

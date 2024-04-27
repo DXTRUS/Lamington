@@ -1,0 +1,1197 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ProdPreva1l <prod.preva1l@gmail.com>
+Date: Sun, 28 Apr 2024 04:16:16 +1000
+Subject: [PATCH] Logging, Custom plugin & better Heartbeat
+
+
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 777f28933844ebdb3c59e1afa8656b58bc0425d6..d95c5197e76a693f6a9f5396b72f837e5e29f4ad 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -13,10 +13,11 @@ configurations.named(log4jPlugins.compileClasspathConfigurationName) {
+ val alsoShade: Configuration by configurations.creating
+ 
+ dependencies {
+-    // Dxtrus Start
++    // Lamington Start
+     implementation("redis.clients:jedis:5.1.0")
+     implementation("org.apache.commons:commons-pool2:2.12.0")
+-    // Dxtrus End
++    implementation("club.minnced:discord-webhooks:0.8.4")
++    // Lamington End
+     // Purpur start
+     implementation(project(":lamington-api"))
+     implementation("io.papermc.paper:paper-mojangapi:${project.version}") {
+diff --git a/src/main/java/net/dxtrus/DxtrusConfig.java b/src/main/java/net/dxtrus/DxtrusConfig.java
+deleted file mode 100644
+index 3268c15488627ec3e55a466fcbde25e852d37429..0000000000000000000000000000000000000000
+--- a/src/main/java/net/dxtrus/DxtrusConfig.java
++++ /dev/null
+@@ -1,149 +0,0 @@
+-package net.dxtrus;
+-
+-import com.google.common.base.Throwables;
+-import com.google.common.collect.ImmutableMap;
+-import org.bukkit.Bukkit;
+-import org.bukkit.configuration.ConfigurationSection;
+-import org.bukkit.configuration.InvalidConfigurationException;
+-import org.bukkit.configuration.file.YamlConfiguration;
+-import java.io.File;
+-import java.io.IOException;
+-import java.lang.reflect.InvocationTargetException;
+-import java.lang.reflect.Method;
+-import java.lang.reflect.Modifier;
+-import java.util.List;
+-import java.util.Map;
+-import java.util.logging.Level;
+-
+-@SuppressWarnings("unused")
+-public class DxtrusConfig {
+-    private static final String HEADER =
+-            """
+-            This is the main configuration file for Lamington (Dxtrus fork of Purpur)
+-            Not much to configure but it will grow!
+-            """;
+-    private static File CONFIG_FILE;
+-    public static YamlConfiguration config;
+-
+-    public static int version;
+-    public static boolean verbose;
+-
+-    public static void init(File configFile) {
+-        CONFIG_FILE = configFile;
+-        config = new YamlConfiguration();
+-        try {
+-            config.load(CONFIG_FILE);
+-        } catch (IOException ignore) {
+-        } catch (InvalidConfigurationException ex) {
+-            Bukkit.getLogger().log(Level.SEVERE, "Could not load purpur.yml, please correct your syntax errors", ex);
+-            throw Throwables.propagate(ex);
+-        }
+-        config.options().header(HEADER);
+-        config.options().copyDefaults(true);
+-        verbose = getBoolean("verbose", false);
+-
+-        version = getInt("config-version", 1);
+-        set("config-version", 1);
+-
+-        readConfig(DxtrusConfig.class, null);
+-    }
+-
+-    protected static void log(String s) {
+-        if (verbose) {
+-            log(Level.INFO, s);
+-        }
+-    }
+-
+-    protected static void log(Level level, String s) {
+-        Bukkit.getLogger().log(level, s);
+-    }
+-
+-    static void readConfig(Class<?> clazz, Object instance) {
+-        for (Method method : clazz.getDeclaredMethods()) {
+-            if (Modifier.isPrivate(method.getModifiers())) {
+-                if (method.getParameterTypes().length == 0 && method.getReturnType() == Void.TYPE) {
+-                    try {
+-                        method.setAccessible(true);
+-                        method.invoke(instance);
+-                    } catch (InvocationTargetException ex) {
+-                        throw Throwables.propagate(ex.getCause());
+-                    } catch (Exception ex) {
+-                        Bukkit.getLogger().log(Level.SEVERE, "Error invoking " + method, ex);
+-                    }
+-                }
+-            }
+-        }
+-
+-        try {
+-            config.save(CONFIG_FILE);
+-        } catch (IOException ex) {
+-            Bukkit.getLogger().log(Level.SEVERE, "Could not save " + CONFIG_FILE, ex);
+-        }
+-    }
+-
+-    private static void set(String path, Object val) {
+-        config.addDefault(path, val);
+-        config.set(path, val);
+-    }
+-
+-    private static String getString(String path, String def) {
+-        config.addDefault(path, def);
+-        return config.getString(path, config.getString(path));
+-    }
+-
+-    private static boolean getBoolean(String path, boolean def) {
+-        config.addDefault(path, def);
+-        return config.getBoolean(path, config.getBoolean(path));
+-    }
+-
+-    private static double getDouble(String path, double def) {
+-        config.addDefault(path, def);
+-        return config.getDouble(path, config.getDouble(path));
+-    }
+-
+-    private static int getInt(String path, int def) {
+-        config.addDefault(path, def);
+-        return config.getInt(path, config.getInt(path));
+-    }
+-
+-    private static <T> List getList(String path, T def) {
+-        config.addDefault(path, def);
+-        return config.getList(path, config.getList(path));
+-    }
+-
+-    static Map<String, Object> getMap(String path, Map<String, Object> def) {
+-        if (def != null && config.getConfigurationSection(path) == null) {
+-            config.addDefault(path, def);
+-            return def;
+-        }
+-        return toMap(config.getConfigurationSection(path));
+-    }
+-
+-    private static Map<String, Object> toMap(ConfigurationSection section) {
+-        ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+-        if (section != null) {
+-            for (String key : section.getKeys(false)) {
+-                Object obj = section.get(key);
+-                if (obj != null) {
+-                    builder.put(key, obj instanceof ConfigurationSection val ? toMap(val) : obj);
+-                }
+-            }
+-        }
+-        return builder.build();
+-    }
+-
+-    public static String serverName = "server-01";
+-    public static boolean heartBeatEnabled = false;
+-    public static String redisHost = "127.0.0.1";
+-    public static int redisPort = 6379;
+-    public static String redisPassword = "P4s5W0rd!";
+-    private static void general() {
+-        serverName = getString("server-name", serverName);
+-
+-        heartBeatEnabled = getBoolean("heartbeat.enabled", heartBeatEnabled);
+-
+-        redisHost = getString("redis.host", redisHost);
+-        redisPort = getInt("redis.port", redisPort);
+-        redisPassword = getString("redis.port", redisPassword);
+-    }
+-}
+diff --git a/src/main/java/net/dxtrus/ImplLamingtonDiscordLogger.java b/src/main/java/net/dxtrus/ImplLamingtonDiscordLogger.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..3120e23d6c324267325ab448c984bad12431b894
+--- /dev/null
++++ b/src/main/java/net/dxtrus/ImplLamingtonDiscordLogger.java
+@@ -0,0 +1,153 @@
++package net.dxtrus;
++
++import club.minnced.discord.webhook.WebhookClient;
++import club.minnced.discord.webhook.WebhookCluster;
++import net.dxtrus.logger.LamingtonDiscordLogger;
++import okhttp3.OkHttpClient;
++import org.jetbrains.annotations.NotNull;
++import org.jetbrains.annotations.Nullable;
++import java.text.SimpleDateFormat;
++import java.time.Instant;
++import java.util.Objects;
++import java.util.Random;
++import java.util.logging.Level;
++import java.util.logging.Logger;
++import java.util.regex.Matcher;
++import java.util.regex.Pattern;
++
++public class ImplLamingtonDiscordLogger implements LamingtonDiscordLogger {
++    private boolean enabled = false;
++    private int errorCount = 0;
++    private final WebhookCluster mainCluster;
++    @Nullable
++    private final WebhookCluster commandLoggingCluster;
++    @Nullable
++    private final WebhookCluster messageLoggingCluster;
++    @Nullable
++    private final WebhookCluster reportIntegrationCluster;
++    public ImplLamingtonDiscordLogger() {
++        // Main logging cluster
++        mainCluster = new WebhookCluster();
++        mainCluster.setDefaultHttpClient(new OkHttpClient());
++        mainCluster.setDefaultDaemon(true);
++
++        for (String webhookUrl : LamingtonConfig.discordWebhookURLS) {
++            try {
++                mainCluster.addWebhooks(getClientFromUrl(webhookUrl));
++            } catch (Exception e) {
++                Logger.getLogger("Lamington").log(Level.SEVERE, "Failed to start command logging webhook! ", e);
++                errorCount++;
++            }
++        }
++
++        // Command logging cluster
++        if (LamingtonConfig.discordFeatCommandEnabled) {
++            commandLoggingCluster = new WebhookCluster();
++            commandLoggingCluster.setDefaultHttpClient(new OkHttpClient());
++            commandLoggingCluster.setDefaultDaemon(true);
++
++            for (String webhookUrl : LamingtonConfig.discordFeatCommandURLS) {
++                try {
++                    commandLoggingCluster.addWebhooks(getClientFromUrl(webhookUrl));
++                } catch (Exception e) {
++                    Logger.getLogger("Lamington").log(Level.SEVERE, "Failed to start command logging webhook! ", e);
++                    errorCount++;
++                }
++            }
++        } else {
++            commandLoggingCluster = null;
++        }
++
++        // Message logging cluster
++        if (LamingtonConfig.discordFeatMessagesEnabled) {
++            messageLoggingCluster = new WebhookCluster();
++            messageLoggingCluster.setDefaultHttpClient(new OkHttpClient());
++            messageLoggingCluster.setDefaultDaemon(true);
++
++            for (String webhookUrl : LamingtonConfig.discordFeatMessagesURLS) {
++                try {
++                    messageLoggingCluster.addWebhooks(getClientFromUrl(webhookUrl));
++                } catch (Exception e) {
++                    Logger.getLogger("Lamington").log(Level.SEVERE, "Failed to start command logging webhook! ", e);
++                    errorCount++;
++                }
++            }
++        } else {
++            messageLoggingCluster = null;
++        }
++
++        // Report integration cluster
++        if (LamingtonConfig.discordFeatReportsEnabled) {
++            reportIntegrationCluster = new WebhookCluster();
++            reportIntegrationCluster.setDefaultHttpClient(new OkHttpClient());
++            reportIntegrationCluster.setDefaultDaemon(true);
++
++            for (String webhookUrl : LamingtonConfig.discordFeatReportsURLS) {
++                try {
++                    reportIntegrationCluster.addWebhooks(getClientFromUrl(webhookUrl));
++                } catch (Exception e) {
++                    Logger.getLogger("Lamington").log(Level.SEVERE, "Failed to start command logging webhook! ", e);
++                    errorCount++;
++                }
++            }
++        } else {
++            reportIntegrationCluster = null;
++        }
++
++        if (errorCount >= 1) {
++            enabled = false;
++            Logger.getLogger("Lamington").severe("Lamington Discord Logger has failed to start with " + errorCount + " errors!");
++        }
++    }
++
++    private final Pattern WEBHOOK_PATTERN =
++        Pattern.compile("(?:https?://)?(?:\\w+\\.)?discord(?:app)?\\.com/api(?:/v\\d+)?/webhooks/(\\d+)/([\\w-]+)(?:/(?:\\w+)?)?", Pattern.CASE_INSENSITIVE);
++
++    /**
++     * This is here bc the built-in one does not say what the url is
++     * @param url url to parse
++     * @return webhook client
++     */
++    private WebhookClient getClientFromUrl(@NotNull String url) throws IllegalArgumentException {
++        Objects.requireNonNull(url, "URL");
++        Matcher matcher = WEBHOOK_PATTERN.matcher(url);
++        if (!matcher.matches()) {
++            throw new IllegalArgumentException("Failed to parse webhook URL: " + url);
++        }
++        return WebhookClient.withId(Long.parseUnsignedLong(matcher.group(1)), matcher.group(2));
++    }
++
++    private final Random random = new Random();
++    @NotNull
++    private WebhookClient getRandomClient(@NotNull WebhookCluster cluster) {
++        return cluster.getWebhooks().get(random.nextInt(cluster.getWebhooks().size()));
++    }
++
++    @Override
++    public void info(@NotNull String message) {
++        String time = new SimpleDateFormat("HH:mm:ss").format(Instant.now().toEpochMilli());
++        getRandomClient(mainCluster).send(String.format("```\n[%s INFO]: %s\n``", time, message));
++    }
++
++    @Override
++    public void severe(@NotNull String message) {
++        String time = new SimpleDateFormat("HH:mm:ss").format(Instant.now().toEpochMilli());
++        getRandomClient(mainCluster).send(String.format("```diff\n- [%s SEVERE]: %s\n```", time, message));
++    }
++
++    @Override
++    public void severe(@NotNull final String message, @NotNull final Exception exception) {
++
++    }
++
++    @Override
++    public boolean isEnabled() {
++        return enabled;
++    }
++
++    @Override
++    public void warn(@NotNull String message) {
++        String time = new SimpleDateFormat("HH:mm:ss").format(Instant.now().toEpochMilli());
++        getRandomClient(mainCluster).send(String.format("```fix\n[%s WARN]: %s\n```", time, message));
++    }
++}
+diff --git a/src/main/java/net/dxtrus/Lamington.java b/src/main/java/net/dxtrus/Lamington.java
+index 6cd363fd11ee1e564de1793899ea374656bc77c0..75e875592325b30add9107ecf0c6693ec0ed95ab 100644
+--- a/src/main/java/net/dxtrus/Lamington.java
++++ b/src/main/java/net/dxtrus/Lamington.java
+@@ -10,35 +10,35 @@ public class Lamington {
+ 
+ 
+         public static void info(String message) {
+-            if (DxtrusConfig.verbose) {
++            if (LamingtonConfig.verbose) {
+                 logger.log(Level.INFO, message);
+             }
+         }
+         public static void info(String message, boolean bypassVerboseCheck) {
+-            if (bypassVerboseCheck || DxtrusConfig.verbose) {
++            if (bypassVerboseCheck || LamingtonConfig.verbose) {
+                 logger.log(Level.INFO, message);
+             }
+         }
+ 
+         public static void log(Level level, String message) {
+-            if (DxtrusConfig.verbose) {
++            if (LamingtonConfig.verbose) {
+                 logger.log(level, message);
+             }
+         }
+ 
+         public static void log(Level level, String message, boolean bypassVerboseCheck) {
+-            if (bypassVerboseCheck || DxtrusConfig.verbose) {
++            if (bypassVerboseCheck || LamingtonConfig.verbose) {
+                 logger.log(level, message);
+             }
+         }
+ 
+         public static void log(Level level, String message, Exception e) {
+-            if (DxtrusConfig.verbose) {
++            if (LamingtonConfig.verbose) {
+                 logger.log(level, message, e);
+             }
+         }
+         public static void log(Level level, String message, Exception e, boolean bypassVerboseCheck) {
+-            if (bypassVerboseCheck || DxtrusConfig.verbose) {
++            if (bypassVerboseCheck || LamingtonConfig.verbose) {
+                 logger.log(level, message, e);
+             }
+         }
+diff --git a/src/main/java/net/dxtrus/LamingtonConfig.java b/src/main/java/net/dxtrus/LamingtonConfig.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..01739b3a65be8b4489945f71053376a145b59fec
+--- /dev/null
++++ b/src/main/java/net/dxtrus/LamingtonConfig.java
+@@ -0,0 +1,201 @@
++package net.dxtrus;
++
++import com.google.common.base.Throwables;
++import com.google.common.collect.ImmutableMap;
++import net.dxtrus.commands.LamingtonCommand;
++import net.minecraft.server.MinecraftServer;
++import org.bukkit.Bukkit;
++import org.bukkit.command.Command;
++import org.bukkit.configuration.ConfigurationSection;
++import org.bukkit.configuration.InvalidConfigurationException;
++import org.bukkit.configuration.file.YamlConfiguration;
++import org.purpurmc.purpur.command.PurpurCommand;
++import java.io.File;
++import java.io.IOException;
++import java.lang.reflect.InvocationTargetException;
++import java.lang.reflect.Method;
++import java.lang.reflect.Modifier;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.logging.Level;
++
++@SuppressWarnings("unused")
++public class LamingtonConfig {
++    private static final String HEADER =
++            """
++            This is the main configuration file for Lamington (Dxtrus fork of Purpur)
++            Not much to configure but it will grow!
++            """;
++    private static File CONFIG_FILE;
++    public static YamlConfiguration config;
++
++    private static Map<String, Command> commands;
++
++    public static int version;
++    public static boolean verbose;
++    //<editor-fold desc="Loading stuff bla bla" defaultstate="collapsed">
++    @SuppressWarnings("deprecation")
++    public static void init(File configFile) {
++        CONFIG_FILE = configFile;
++        config = new YamlConfiguration();
++        try {
++            config.load(CONFIG_FILE);
++        } catch (IOException ignore) {
++        } catch (InvalidConfigurationException ex) {
++            Bukkit.getLogger().log(Level.SEVERE, "Could not load lamington.yml, please correct your syntax errors", ex);
++            throw Throwables.propagate(ex);
++        }
++        config.options().header(HEADER);
++        config.options().copyDefaults(true);
++        verbose = getBoolean("verbose", false);
++
++        commands = new HashMap<>();
++        commands.put("lamington", new LamingtonCommand("Lamington"));
++
++        version = getInt("config-version", 2);
++        set("config-version", 2);
++
++        readConfig();
++    }
++
++    protected static void log(String s) {
++        if (verbose) {
++            log(Level.INFO, s);
++        }
++    }
++
++    protected static void log(Level level, String s) {
++        Bukkit.getLogger().log(level, s);
++    }
++
++    public static void registerCommands() {
++        for (Map.Entry<String, Command> entry : commands.entrySet()) {
++            MinecraftServer.getServer().server.getCommandMap().register(entry.getKey(), "Lamington", entry.getValue());
++        }
++    }
++
++    @SuppressWarnings("deprecation")
++    static void readConfig() {
++        for (Method method : LamingtonConfig.class.getDeclaredMethods()) {
++            if (!Modifier.isPrivate(method.getModifiers())) continue;
++            if (method.getParameterTypes().length != 0 || method.getReturnType() != Void.TYPE) continue;
++            try {
++                method.setAccessible(true);
++                method.invoke(null);
++            } catch (InvocationTargetException ex) {
++                throw Throwables.propagate(ex.getCause());
++            } catch (Exception ex) {
++                Bukkit.getLogger().log(Level.SEVERE, "Error invoking " + method, ex);
++            }
++        }
++
++        try {
++            config.save(CONFIG_FILE);
++        } catch (IOException ex) {
++            Bukkit.getLogger().log(Level.SEVERE, "Could not save " + CONFIG_FILE, ex);
++        }
++    }
++
++    private static void set(String path, Object val) {
++        config.addDefault(path, val);
++        config.set(path, val);
++    }
++
++    private static String getString(String path, String def) {
++        config.addDefault(path, def);
++        return config.getString(path, config.getString(path));
++    }
++
++    private static boolean getBoolean(String path, boolean def) {
++        config.addDefault(path, def);
++        return config.getBoolean(path, config.getBoolean(path));
++    }
++
++    private static double getDouble(String path, double def) {
++        config.addDefault(path, def);
++        return config.getDouble(path, config.getDouble(path));
++    }
++
++    private static int getInt(String path, int def) {
++        config.addDefault(path, def);
++        return config.getInt(path, config.getInt(path));
++    }
++
++    private static <T> List getList(String path, T def) {
++        config.addDefault(path, def);
++        return config.getList(path, config.getList(path));
++    }
++
++    private static List<String> getStringList(String path, List<String> def) {
++        config.addDefault(path, def);
++        return config.getStringList(path);
++    }
++
++    static Map<String, Object> getMap(String path, Map<String, Object> def) {
++        if (def != null && config.getConfigurationSection(path) == null) {
++            config.addDefault(path, def);
++            return def;
++        }
++        return toMap(config.getConfigurationSection(path));
++    }
++
++    private static Map<String, Object> toMap(ConfigurationSection section) {
++        ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
++        if (section != null) {
++            for (String key : section.getKeys(false)) {
++                Object obj = section.get(key);
++                if (obj != null) {
++                    builder.put(key, obj instanceof ConfigurationSection val ? toMap(val) : obj);
++                }
++            }
++        }
++        return builder.build();
++    }
++
++
++    //</editor-fold>
++    public static boolean discordEnabled = true;
++    public static List<String> discordWebhookURLS = List.of("WEBHOOK_URL");
++    public static boolean discordFeatCommandEnabled = false;
++    public static List<String> discordFeatCommandURLS = List.of("WEBHOOK_URL");
++    public static boolean discordFeatMessagesEnabled = false;
++    public static List<String> discordFeatMessagesURLS = List.of("WEBHOOK_URL");
++    public static boolean discordFeatReportsEnabled = false;
++    public static List<String> discordFeatReportsURLS = List.of("WEBHOOK_URL");
++    private static void discordHook() {
++        discordEnabled = getBoolean("discord-logging.enabled", discordEnabled);
++        discordWebhookURLS = getStringList("discord-logging.main-urls", discordWebhookURLS);
++
++        discordFeatCommandEnabled = getBoolean("discord-logging.features.command-logs.enabled", discordFeatCommandEnabled);
++        discordFeatCommandURLS = getStringList("discord-logging.features.command-logs.urls", discordFeatCommandURLS);
++        discordFeatMessagesEnabled = getBoolean("discord-logging.features.message-logs.enabled", discordFeatMessagesEnabled);
++        discordFeatMessagesURLS = getStringList("discord-logging.features.message-logs.urls", discordFeatMessagesURLS);
++        discordFeatReportsEnabled = getBoolean("discord-logging.features.report-logs.enabled", discordFeatReportsEnabled);
++        discordFeatReportsURLS = getStringList("discord-logging.features.report-logs.urls", discordFeatReportsURLS);
++    }
++
++    public static String serverName = "server-01";
++    public static String serverType = "LOBBY";
++    public static boolean heartBeatEnabled = false;
++    public static int heartbeatSubmitRate = 5;
++    public static String redisHost = "127.0.0.1";
++    public static int redisPort = 6379;
++    public static String redisPassword = "P4s5W0rd!";
++
++    private static void heartbeat() {
++        serverName = getString("heartbeat.server-name", serverName);
++        serverType = getString("heartbeat.server-type", serverType);
++        config.setComments("heartbeat.server-type", List.of("Available server types are:", "SURVIVAL_ZONE", "SURVIVAL_SPAWN", "SKYBLOCK_ISLAND", "SKYBLOCK_GENERIC", "LOBBY", "OTHER"));
++        heartbeatSubmitRate = getInt("heartbeat.data-submit-rate", heartbeatSubmitRate);
++        config.setComments("heartbeat.data-submit-rate", List.of("How often data should be submitted to redis (in seconds)"));
++        heartBeatEnabled = getBoolean("heartbeat.enabled", heartBeatEnabled);
++
++        config.setComments("heartbeat", List.of("All changes here require a restart!"));
++    }
++    private static void redis() {
++        redisHost = getString("redis.host", redisHost);
++        redisPort = getInt("redis.port", redisPort);
++        redisPassword = getString("redis.password", redisPassword);
++    }
++}
+diff --git a/src/main/java/net/dxtrus/commands/LamingtonCommand.java b/src/main/java/net/dxtrus/commands/LamingtonCommand.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..35fb6a7ef5ce60bd9fc4bfea12dfcc00d27e7495
+--- /dev/null
++++ b/src/main/java/net/dxtrus/commands/LamingtonCommand.java
+@@ -0,0 +1,99 @@
++package net.dxtrus.commands;
++
++import net.dxtrus.LamingtonConfig;
++import net.dxtrus.heartbeat.HeartBeat;
++import net.kyori.adventure.text.minimessage.MiniMessage;
++import net.minecraft.server.MinecraftServer;
++import org.bukkit.Bukkit;
++import org.bukkit.ChatColor;
++import org.bukkit.Location;
++import org.bukkit.command.Command;
++import org.bukkit.command.CommandSender;
++import java.io.File;
++import java.util.Collections;
++import java.util.List;
++import java.util.stream.Collectors;
++import java.util.stream.Stream;
++
++public class LamingtonCommand extends Command {
++    public LamingtonCommand(String name) {
++        super(name);
++        this.description = "Lamington related commands";
++        this.usageMessage = "/lamington [reload | version | servers]";
++        this.setPermission("bukkit.command.lamington");
++    }
++
++    @Override
++    public List<String> tabComplete(CommandSender sender, String alias, String[] args, Location location) throws IllegalArgumentException {
++        if (args.length == 1) {
++            return Stream.of("reload", "version", "servers")
++                .filter(arg -> arg.startsWith(args[0].toLowerCase()))
++                .collect(Collectors.toList());
++        }
++        return Collections.emptyList();
++    }
++
++    @Override
++    public boolean execute(CommandSender sender, String commandLabel, String[] args) {
++        if (!testPermission(sender)) return true;
++
++        if (args.length != 1) {
++            sender.sendMessage(ChatColor.RED + "Usage: " + this.usageMessage);
++            return false;
++        }
++
++        switch(args[0].toLowerCase()) {
++            case "reload": return reloadCommand(sender);
++            case "servers": return serversCommand(sender);
++            case "version": {
++                Command verCmd = org.bukkit.Bukkit.getServer().getCommandMap().getCommand("version");
++                if (verCmd != null) {
++                    return verCmd.execute(sender, commandLabel, new String[0]);
++                }
++            }
++            default: return false;
++        }
++
++    }
++
++    private boolean serversCommand(CommandSender sender) {
++        HeartBeat heartBeat = Bukkit.getHeartBeat();
++        if (heartBeat == null) {
++            sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>HeartBeat is not enabled/configured in <gray>lamington.yml"));
++            return true;
++        }
++        StringBuilder builder = new StringBuilder("<gray>[Servers] (MSPT / TPS / Player Count)");
++        for (String server : Bukkit.getHeartBeat().getServers().keySet()) {
++            String tickTime = heartBeat.getMSPT(server) + " MSPT";
++            if (heartBeat.getTPS(server) >= 19.9) {
++                tickTime = "<green>" +tickTime;
++            } else if (heartBeat.getTPS(server) >= 17.5) {
++                tickTime = "<yellow>" + tickTime;
++            } else {
++                tickTime = "<red>" + tickTime;
++            }
++
++            if (!heartBeat.isOnline(server)) {
++                builder.append(String.format("\n<dark_gray>[%s] %s MSPT, %.1f TPS, %s players",
++                    server, heartBeat.getMSPT(server), heartBeat.getTPS(server), heartBeat.getPlayerCount(server)));
++            } else {
++                builder.append(String.format("\n<green>[%s<green>] %s, %.1f TPS, %s players",
++                    (heartBeat.getCurrentServer().equalsIgnoreCase(server) ? "<gold>" : "") + server, tickTime, heartBeat.getTPS(server), heartBeat.getPlayerCount(server)));
++            }
++        }
++        sender.sendMessage(MiniMessage.miniMessage().deserialize(builder.toString()));
++        return true;
++    }
++
++    private boolean reloadCommand(CommandSender sender) {
++        Command.broadcastCommandMessage(sender, ChatColor.RED + "Please note that this command is not supported and may cause issues.");
++        Command.broadcastCommandMessage(sender, ChatColor.RED + "If you encounter any issues please use the /stop command to restart your server.");
++
++        MinecraftServer console = MinecraftServer.getServer();
++        LamingtonConfig.init((File) console.options.valueOf("lamington-settings"));
++        console.server.reloadCount++;
++
++        Command.broadcastCommandMessage(sender, ChatColor.GREEN + "Lamington config reload complete.");
++        return true;
++    }
++}
+diff --git a/src/main/java/net/dxtrus/heartbeat/ImplHeartBeat.java b/src/main/java/net/dxtrus/heartbeat/ImplHeartBeat.java
+index 385b07675ee8786fb83ee0f436d59e50afeabc82..31eea3e496f0bc79596376cec57679d1f5e1e518 100644
+--- a/src/main/java/net/dxtrus/heartbeat/ImplHeartBeat.java
++++ b/src/main/java/net/dxtrus/heartbeat/ImplHeartBeat.java
+@@ -1,11 +1,7 @@
+ package net.dxtrus.heartbeat;
+ 
+ import com.google.gson.JsonObject;
+-import com.google.gson.JsonParser;
+-import net.dxtrus.DxtrusConfig;
+-import net.dxtrus.Lamington;
+-import org.bukkit.Bukkit;
+-import org.bukkit.craftbukkit.scheduler.MinecraftInternalPlugin;
++import net.dxtrus.LamingtonConfig;
+ import org.jetbrains.annotations.NotNull;
+ import org.jetbrains.annotations.Nullable;
+ import redis.clients.jedis.Jedis;
+@@ -15,79 +11,54 @@ import redis.clients.jedis.exceptions.JedisException;
+ import redis.clients.jedis.util.Pool;
+ import java.util.HashMap;
+ import java.util.Map;
++import java.util.concurrent.CompletableFuture;
++import java.util.concurrent.Executors;
++import java.util.concurrent.ScheduledExecutorService;
++import java.util.concurrent.TimeUnit;
+ import java.util.logging.Level;
++import java.util.logging.Logger;
+ 
+ @SuppressWarnings("unused")
+-public class ImplHeartBeat implements net.dxtrus.heartbeat.HeartBeat {
++public class ImplHeartBeat implements HeartBeat {
+     private static Pool<Jedis> pool;
+     private static String currentServer;
+     private static final Map<String, JsonObject> servers = new HashMap<>();
++    private final ScheduledExecutorService monitorScheduler = Executors.newScheduledThreadPool(1);
++    private final ScheduledExecutorService pingScheduler = Executors.newScheduledThreadPool(1);
+ 
+     public ImplHeartBeat() {
+-        currentServer = DxtrusConfig.serverName;
++        currentServer = LamingtonConfig.serverName;
+ 
+-        Bukkit.getScheduler().runTaskAsynchronously(new MinecraftInternalPlugin(), () -> {
+-            Lamington.Logs.info("Lamington is connecting to redis pool...");
++        CompletableFuture.runAsync(()->{
++            Logger.getLogger("Lamington").info("Lamington is connecting to redis pool...");
+             try {
+                 final JedisPoolConfig config = new JedisPoolConfig();
+                 config.setMaxIdle(2);
+                 config.setTestOnBorrow(true);
+                 config.setTestOnReturn(true);
+ 
+-                pool = new JedisPool(config, DxtrusConfig.redisHost, DxtrusConfig.redisPort, 0, DxtrusConfig.redisPassword);
++                pool = new JedisPool(config, LamingtonConfig.redisHost, LamingtonConfig.redisPort, 0, LamingtonConfig.redisPassword);
+             } catch (JedisException e) {
+-                Bukkit.getLogger().log(Level.SEVERE, "Lamington failed to connect to Redis: ", e);
+-                throw new RuntimeException(e);
++                Logger.getLogger("Lamington").log(Level.SEVERE, "Lamington failed to connect to Redis: ", e);
++                return;
+             }
+-            Lamington.Logs.info("Lamington successfully connected to Redis!");
++            Logger.getLogger("Lamington").info("Lamington successfully connected to Redis!");
+         });
+ 
+-        Bukkit.getScheduler().runTaskTimerAsynchronously(new MinecraftInternalPlugin(), this::startMonitoring, 1L, 20L);
+-        Bukkit.getScheduler().runTaskTimerAsynchronously(new MinecraftInternalPlugin(), this::startPing, 1L, 20L);
+-    }
+-
+-    private void startMonitoring() {
+-        long startTime = System.currentTimeMillis();
+-        double tps = Math.min(Bukkit.getTPS()[0], 20.0);
+-        double mspt = Math.round(Bukkit.getAverageTickTime() * 100.0) / 100.0;
+-        long lastHeartBeat = System.currentTimeMillis();
+-        int onlinePlayers = Bukkit.getOnlinePlayers().size();
+-        JsonObject serverData = new JsonObject();
+-
+-        serverData.addProperty("server", getCurrentServer());
+-        serverData.addProperty("onlinePlayers", onlinePlayers);
+-        serverData.addProperty("tps", tps);
+-        serverData.addProperty("mspt", mspt);
+-        serverData.addProperty("startTime", startTime);
+-        serverData.addProperty("lastHeartBeat", lastHeartBeat);
+-
+-        String serverDataJson = serverData.toString();
+-
+-        try (Jedis jedis = pool.getResource()) {
+-            jedis.hset("lamington_heartbeat", currentServer, serverDataJson);
+-        } catch (Exception e) {
+-            Lamington.Logs.log(Level.SEVERE, "Lamington failed to send server data with redis: ", e, true);
+-        }
+-    }
+-
+-    private void startPing() {
+-        try (Jedis jedis = pool.getResource()) {
+-            servers.clear();
+-            Map<String, String> temp = jedis.hgetAll("lamington_heartbeat");
+-            for (String key : temp.keySet()) {
+-                servers.put(key, JsonParser.parseString(temp.get(key)).getAsJsonObject());
+-            }
+-        } catch (Exception e) {
+-            Lamington.Logs.log(Level.SEVERE, "Lamington failed to get server data from redis: ", e, true);
+-        }
++        StartMonitoringTask startMonitoringTask = new StartMonitoringTask();
++        StartPingTask startPingTask = new StartPingTask();
++        monitorScheduler.scheduleAtFixedRate(() -> startMonitoringTask.run(), 1, LamingtonConfig.heartbeatSubmitRate, TimeUnit.SECONDS);
++        pingScheduler.scheduleAtFixedRate(() -> startPingTask.run(), 1, LamingtonConfig.heartbeatSubmitRate, TimeUnit.SECONDS);
+     }
+ 
+     public void shutdown() {
+-        Lamington.Logs.info("Lamington is disconnecting from redis...");
++        Logger.getLogger("Lamington").info("Lamington is disconnecting from redis...");
+         if (pool != null) {
+             pool.close();
+         }
+-        Lamington.Logs.info("Lamington has disconnected from redis!");
++        monitorScheduler.shutdown();
++        pingScheduler.shutdown();
++        Logger.getLogger("Lamington").info("Lamington has disconnected from redis!");
+     }
+ 
+     // Getters
+@@ -100,44 +71,43 @@ public class ImplHeartBeat implements net.dxtrus.heartbeat.HeartBeat {
+         return servers;
+     }
+ 
+-    @Nullable
+     @Override
+-    public JsonObject getServerObject(@NotNull String server) {
++    public @Nullable JsonObject getServerObject(@NotNull String server) {
+         return servers.get(server);
+     }
+ 
+     @Override
+-    public Integer getPlayerCount(@NotNull String server) {
++    public @NotNull Integer getPlayerCount(@NotNull String server) {
+         JsonObject serverObj = getServerObject(server);
+         if (serverObj != null) {
+-            return Integer.parseInt(serverObj.get("onlinePlayers").toString());
++            return serverObj.get("onlinePlayers").getAsInt();
+         }
+         return 0;
+     }
+ 
+     @Override
+-    public Double getTPS(@NotNull String server) {
++    public @NotNull Double getTPS(@NotNull String server) {
+         JsonObject serverObj = getServerObject(server);
+         if (serverObj != null) {
+-            return Double.parseDouble(serverObj.get("tps").toString());
++            return serverObj.get("tps").getAsDouble();
+         }
+         return 00.0;
+     }
+ 
+     @Override
+-    public Double getMSPT(@NotNull String server) {
++    public @NotNull Double getMSPT(@NotNull String server) {
+         JsonObject serverObj = getServerObject(server);
+         if (serverObj != null) {
+-            return Double.parseDouble(serverObj.get("mspt").toString());
++            return serverObj.get("mspt").getAsDouble();
+         }
+         return 00.0;
+     }
+ 
+     @Override
+-    public Boolean isOnline(@NotNull String server) {
++    public @NotNull Boolean isOnline(@NotNull String server) {
+         JsonObject serverObj = getServerObject(server);
+         if (serverObj != null) {
+-            return Long.parseLong(serverObj.get("lastHeartBeat").toString()) >= System.currentTimeMillis() - 4000;
++            return serverObj.get("lastHeartBeat").getAsLong() >= System.currentTimeMillis() - 4000;
+         }
+         return false;
+     }
+@@ -146,7 +116,7 @@ public class ImplHeartBeat implements net.dxtrus.heartbeat.HeartBeat {
+     public Long[] getOnlineTime(@NotNull String server) {
+         JsonObject serverObj = getServerObject(server);
+         if (serverObj != null) {
+-            long milliOnline = Long.parseLong(serverObj.get("lastHeartBeat").toString()) - Long.parseLong(serverObj.get("startTime").toString());
++            long milliOnline = serverObj.get("lastHeartBeat").getAsLong() - serverObj.get("startTime").getAsLong();
+             long seconds = milliOnline / 1000;
+             long minutes = seconds / 60;
+             long hours = minutes / 60;
+@@ -160,20 +130,34 @@ public class ImplHeartBeat implements net.dxtrus.heartbeat.HeartBeat {
+     }
+ 
+     @Override
+-    public Long getLastHeartbeat(@NotNull String server) {
++    public @NotNull Long getLastHeartbeat(@NotNull String server) {
+         JsonObject serverObj = getServerObject(server);
+         if (serverObj != null) {
+-            return Long.parseLong(serverObj.get("lastHeartBeat").toString());
++            return serverObj.get("lastHeartBeat").getAsLong();
+         }
+         return 0L;
+     }
+ 
+     @Override
+-    public Long getStartTime(@NotNull String server) {
++    public @NotNull Long getStartTime(@NotNull String server) {
+         JsonObject serverObj = getServerObject(server);
+         if (serverObj != null) {
+             return Long.parseLong(serverObj.get("startTime").toString());
+         }
+         return 0L;
+     }
++
++    @Override
++    public @NotNull ServerType getServerType(@NotNull final String server) {
++        JsonObject serverObj = getServerObject(server);
++        if (serverObj != null) {
++            return ServerType.fromId(serverObj.get("serverType").getAsInt());
++        }
++        return ServerType.OTHER;
++    }
++
++    @Override
++    public @Nullable Pool<Jedis> getPool() {
++        return pool;
++    }
+ }
+diff --git a/src/main/java/net/dxtrus/heartbeat/StartMonitoringTask.java b/src/main/java/net/dxtrus/heartbeat/StartMonitoringTask.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..37c1e61a48d46810bccda80d03ad779cdadca087
+--- /dev/null
++++ b/src/main/java/net/dxtrus/heartbeat/StartMonitoringTask.java
+@@ -0,0 +1,51 @@
++package net.dxtrus.heartbeat;
++
++import com.google.gson.JsonObject;
++import net.dxtrus.logger.LamingtonLogger;
++import org.bukkit.Bukkit;
++import redis.clients.jedis.Jedis;
++import java.util.concurrent.CompletableFuture;
++import java.util.logging.Level;
++import java.util.logging.Logger;
++
++public class StartMonitoringTask implements Runnable {
++    private static StartMonitoringTask instance;
++    @Override
++    public void run() {
++        CompletableFuture.runAsync(()-> {
++            HeartBeat heartBeat = Bukkit.getHeartBeat();
++            if (heartBeat == null || heartBeat.getPool() == null) {
++                return;
++            }
++
++            long startTime = System.currentTimeMillis();
++            double tps = Math.min(Bukkit.getTPS()[0], 20.0);
++            double mspt = Math.round(Bukkit.getAverageTickTime() * 100.0) / 100.0;
++            long lastHeartBeat = System.currentTimeMillis();
++            int onlinePlayers = Bukkit.getOnlinePlayers().size();
++            JsonObject serverData = new JsonObject();
++
++            serverData.addProperty("server", heartBeat.getCurrentServer());
++            serverData.addProperty("onlinePlayers", onlinePlayers);
++            serverData.addProperty("tps", tps);
++            serverData.addProperty("mspt", mspt);
++            serverData.addProperty("startTime", startTime);
++            serverData.addProperty("lastHeartBeat", lastHeartBeat);
++
++            String serverDataJson = serverData.toString();
++
++            try (Jedis jedis = heartBeat.getPool().getResource()) {
++                jedis.hset("lamington_heartbeat", heartBeat.getCurrentServer(), serverDataJson);
++            } catch (Exception e) {
++                Logger.getLogger("Lamington").log(Level.SEVERE, "Lamington failed to send server data with redis: ", e);
++            }
++        });
++    }
++
++    public static StartMonitoringTask getInstance() {
++        if (instance == null) {
++            instance = new StartMonitoringTask();
++        }
++        return instance;
++    }
++}
+diff --git a/src/main/java/net/dxtrus/heartbeat/StartPingTask.java b/src/main/java/net/dxtrus/heartbeat/StartPingTask.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..f2447338a55528dee57c7eac8688f439095aff99
+--- /dev/null
++++ b/src/main/java/net/dxtrus/heartbeat/StartPingTask.java
+@@ -0,0 +1,39 @@
++package net.dxtrus.heartbeat;
++
++import com.google.gson.JsonParser;
++import org.bukkit.Bukkit;
++import redis.clients.jedis.Jedis;
++import java.util.Map;
++import java.util.concurrent.CompletableFuture;
++import java.util.logging.Level;
++import java.util.logging.Logger;
++
++public class StartPingTask implements Runnable {
++    private static StartMonitoringTask instance;
++    @Override
++    public void run() {
++        CompletableFuture.runAsync(()->{
++            HeartBeat heartBeat = Bukkit.getHeartBeat();
++            if (heartBeat == null || heartBeat.getPool() == null) {
++                return;
++            }
++
++            try (Jedis jedis = heartBeat.getPool().getResource()) {
++                heartBeat.getServers().clear();
++                Map<String, String> temp = jedis.hgetAll("lamington_heartbeat");
++                for (String key : temp.keySet()) {
++                    heartBeat.getServers().put(key, JsonParser.parseString(temp.get(key)).getAsJsonObject());
++                }
++            } catch (Exception e) {
++                Logger.getLogger("Lamington").log(Level.SEVERE, "Lamington failed to get server data from redis: ", e);
++            }
++        });
++    }
++
++    public static StartMonitoringTask getInstance() {
++        if (instance == null) {
++            instance = new StartMonitoringTask();
++        }
++        return instance;
++    }
++}
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index edbbb97003debb6c31b0675fdb596918919f2fa8..74ba00c1e5ab35b4c0bc2d1ace1302a137bfaf2c 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -51,6 +51,7 @@ import java.util.stream.Stream;
+ import javax.annotation.Nullable;
+ import javax.imageio.ImageIO;
+ import net.dxtrus.heartbeat.HeartBeat;
++import net.dxtrus.logger.LamingtonDiscordLogger;
+ import net.minecraft.CrashReport;
+ import net.minecraft.ReportedException;
+ import net.minecraft.SharedConstants;
+@@ -2949,4 +2950,9 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+     // Lamington start
+     @Nullable
+     public abstract HeartBeat getHeartBeat();
++
++    @Nullable
++    public abstract LamingtonDiscordLogger getLamingtonDiscordLogger();
++
++    // Lamington end
+ }
+diff --git a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+index 087583e0570d69477cb883a8c1fb2615326346bd..e8187ce4b8d2d9fcf86443ce99efceb24ef8fa92 100644
+--- a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -13,9 +13,11 @@ import java.util.Locale;
+ import java.util.Optional;
+ import java.util.function.BooleanSupplier;
+ import javax.annotation.Nullable;
+-import net.dxtrus.DxtrusConfig;
++import net.dxtrus.LamingtonConfig;
++import net.dxtrus.ImplLamingtonDiscordLogger;
+ import net.dxtrus.heartbeat.HeartBeat;
+ import net.dxtrus.heartbeat.ImplHeartBeat;
++import net.dxtrus.logger.LamingtonDiscordLogger;
+ import net.minecraft.DefaultUncaughtExceptionHandler;
+ import net.minecraft.DefaultUncaughtExceptionHandlerWithName;
+ import net.minecraft.SharedConstants;
+@@ -76,7 +78,9 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+     @Nullable
+     private final TextFilterClient textFilterClient;
+     @Nullable
+-    private ImplHeartBeat dxtrusHeartBeat;
++    private ImplHeartBeat lamingtonHeartBeat;
++    @Nullable
++    private ImplLamingtonDiscordLogger lamingtonDiscordLogger;
+ 
+     // CraftBukkit start - Signature changed
+     public DedicatedServer(joptsimple.OptionSet options, WorldLoader.DataLoadContext worldLoader, Thread thread, LevelStorageSource.LevelStorageAccess convertable_conversionsession, PackRepository resourcepackrepository, WorldStem worldstem, DedicatedServerSettings dedicatedserversettings, DataFixer datafixer, Services services, ChunkProgressListenerFactory worldloadlistenerfactory) {
+@@ -226,14 +230,15 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+         }
+         org.purpurmc.purpur.PurpurConfig.registerCommands();
+         // Purpur end
+-        // Dxtrus Start
++        // Lamington Start
+         try {
+-            net.dxtrus.DxtrusConfig.init((java.io.File) options.valueOf("dxtrus-settings"));
++            LamingtonConfig.init((java.io.File) options.valueOf("lamington-settings"));
+         } catch (Exception e) {
+             DedicatedServer.LOGGER.error("Unable to load lamington server configuration", e);
+             return false;
+         }
+-        // Dxtrus End
++        LamingtonConfig.registerCommands();
++        // Lamington End
+         com.destroystokyo.paper.VersionHistoryManager.INSTANCE.getClass(); // Paper - load version history now
+         io.papermc.paper.brigadier.PaperBrigadierProviderImpl.INSTANCE.getClass(); // Paper - init PaperBrigadierProvider
+         gg.pufferfish.pufferfish.PufferfishConfig.pufferfishFile = (java.io.File) options.valueOf("pufferfish-settings"); // Purpur
+@@ -336,8 +341,11 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+             DedicatedServer.LOGGER.info("Preparing level \"{}\"", this.getLevelIdName());
+             this.loadLevel(this.storageSource.getLevelId()); // CraftBukkit
+             // Dxtrus start - heartbeat monitoring
+-            if (DxtrusConfig.heartBeatEnabled) {
+-                dxtrusHeartBeat = new ImplHeartBeat();
++            if (LamingtonConfig.discordEnabled) {
++                lamingtonDiscordLogger = new ImplLamingtonDiscordLogger();
++            }
++            if (LamingtonConfig.heartBeatEnabled) {
++                lamingtonHeartBeat = new ImplHeartBeat();
+             }
+             // Dxtrus end
+ 
+@@ -854,8 +862,8 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+     @Override
+     public void stopServer() {
+         super.stopServer();
+-        if (dxtrusHeartBeat != null) {
+-            dxtrusHeartBeat.shutdown();
++        if (lamingtonHeartBeat != null) {
++            lamingtonHeartBeat.shutdown();
+         }
+         //Util.shutdownExecutors(); // Paper - moved into super
+         SkullBlockEntity.clear();
+@@ -912,7 +920,13 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+     @Override
+     @Nullable
+     public HeartBeat getHeartBeat() {
+-        return dxtrusHeartBeat;
++        return lamingtonHeartBeat;
++    }
++
++    @Override
++    @Nullable
++    public LamingtonDiscordLogger getLamingtonDiscordLogger() {
++        return lamingtonDiscordLogger;
+     }
+     // Lamington end
+ }
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index 14793ea44d1e420736e292a53ebb4648a73791ca..406f0951ba4fdf769e729c730b6a5ab2365c2440 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -43,7 +43,9 @@ import java.util.logging.Logger;
+ import java.util.stream.Collectors;
+ import javax.imageio.ImageIO;
+ // import jline.console.ConsoleReader;
++import net.dxtrus.LamingtonConfig;
+ import net.dxtrus.heartbeat.HeartBeat;
++import net.dxtrus.logger.LamingtonDiscordLogger;
+ import net.minecraft.advancements.AdvancementHolder;
+ import net.minecraft.commands.CommandSourceStack;
+ import net.minecraft.commands.Commands;
+@@ -1069,7 +1071,7 @@ public final class CraftServer implements Server {
+         org.spigotmc.SpigotConfig.init((File) this.console.options.valueOf("spigot-settings")); // Spigot
+         this.console.paperConfigurations.reloadConfigs(this.console);
+         org.purpurmc.purpur.PurpurConfig.init((File) console.options.valueOf("purpur-settings")); // Purpur
+-        net.dxtrus.DxtrusConfig.init((File) console.options.valueOf("dxtrus-settings")); // Dxtrus
++        LamingtonConfig.init((File) console.options.valueOf("dxtrus-settings")); // Dxtrus
+         for (ServerLevel world : this.console.getAllLevels()) {
+             // world.serverLevelData.setDifficulty(config.difficulty); // Paper - per level difficulty
+             world.setSpawnSettings(world.serverLevelData.getDifficulty() != Difficulty.PEACEFUL && config.spawnMonsters, config.spawnAnimals); // Paper - per level difficulty (from MinecraftServer#setDifficulty(ServerLevel, Difficulty, boolean))
+@@ -1102,6 +1104,7 @@ public final class CraftServer implements Server {
+         org.spigotmc.SpigotConfig.registerCommands(); // Spigot
+         io.papermc.paper.command.PaperCommands.registerCommands(this.console); // Paper
+         org.purpurmc.purpur.PurpurConfig.registerCommands(); // Purpur
++        LamingtonConfig.registerCommands(); // Lamington
+         this.overrideAllCommandBlockCommands = this.commandsConfiguration.getStringList("command-block-overrides").contains("*");
+         this.ignoreVanillaPermissions = this.commandsConfiguration.getBoolean("ignore-vanilla-permissions");
+ 
+@@ -3364,5 +3367,11 @@ public final class CraftServer implements Server {
+     public HeartBeat getHeartBeat() {
+         return getServer().getHeartBeat();
+     }
++
++    @Override
++    @Nullable
++    public LamingtonDiscordLogger getLamingtonDiscordLogger() {
++        return getServer().getLamingtonDiscordLogger();
++    }
+     // Lamington end
+ }
+diff --git a/src/main/java/org/bukkit/craftbukkit/Main.java b/src/main/java/org/bukkit/craftbukkit/Main.java
+index 87c7d0e85b00670882b520d04340a2f5cff130b3..3ad6217c0683542925d5e6110818070309d89280 100644
+--- a/src/main/java/org/bukkit/craftbukkit/Main.java
++++ b/src/main/java/org/bukkit/craftbukkit/Main.java
+@@ -189,7 +189,7 @@ public class Main {
+                 // Purpur end
+ 
+                 // Dxtrus start
+-                acceptsAll(asList("dxtrus", "dxtrus-settings"), "File for lamington settings")
++                acceptsAll(asList("lamington", "lamington-settings"), "File for lamington settings")
+                     .withRequiredArg()
+                     .ofType(File.class)
+                     .defaultsTo(new File("lamington.yml"))
+diff --git a/src/main/java/org/bukkit/craftbukkit/util/Versioning.java b/src/main/java/org/bukkit/craftbukkit/util/Versioning.java
+index 99597258e8e88cd9e2c901c4ac3ff7faeeabee2b..367afe717fb1db649accf115b9ec881d6c1a6b4f 100644
+--- a/src/main/java/org/bukkit/craftbukkit/util/Versioning.java
++++ b/src/main/java/org/bukkit/craftbukkit/util/Versioning.java
+@@ -11,7 +11,7 @@ public final class Versioning {
+     public static String getBukkitVersion() {
+         String result = "Unknown-Version";
+ 
+-        InputStream stream = Bukkit.class.getClassLoader().getResourceAsStream("META-INF/maven/org.purpurmc.purpur/purpur-api/pom.properties"); // Pufferfish // Purpur
++        InputStream stream = Bukkit.class.getClassLoader().getResourceAsStream("META-INF/maven/net.dxtrus.lamington/lamington-api/pom.properties"); // Pufferfish // Purpur // Lamington
+         Properties properties = new Properties();
+ 
+         if (stream != null) {
