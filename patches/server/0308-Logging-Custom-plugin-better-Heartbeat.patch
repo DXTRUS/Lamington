@@ -384,15 +384,16 @@ index 6cd363fd11ee1e564de1793899ea374656bc77c0..75e875592325b30add9107ecf0c6693e
          }
 diff --git a/src/main/java/net/dxtrus/LamingtonConfig.java b/src/main/java/net/dxtrus/LamingtonConfig.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..01739b3a65be8b4489945f71053376a145b59fec
+index 0000000000000000000000000000000000000000..8c3a54e5c32d4ec99e5b0ca08f0a1791f8171f3a
 --- /dev/null
 +++ b/src/main/java/net/dxtrus/LamingtonConfig.java
-@@ -0,0 +1,201 @@
+@@ -0,0 +1,211 @@
 +package net.dxtrus;
 +
 +import com.google.common.base.Throwables;
 +import com.google.common.collect.ImmutableMap;
 +import net.dxtrus.commands.LamingtonCommand;
++import net.dxtrus.heartbeat.ServerType;
 +import net.minecraft.server.MinecraftServer;
 +import org.bukkit.Bukkit;
 +import org.bukkit.command.Command;
@@ -409,6 +410,7 @@ index 0000000000000000000000000000000000000000..01739b3a65be8b4489945f71053376a1
 +import java.util.List;
 +import java.util.Map;
 +import java.util.logging.Level;
++import java.util.logging.Logger;
 +
 +@SuppressWarnings("unused")
 +public class LamingtonConfig {
@@ -431,6 +433,12 @@ index 0000000000000000000000000000000000000000..01739b3a65be8b4489945f71053376a1
 +        config = new YamlConfiguration();
 +        try {
 +            config.load(CONFIG_FILE);
++            try {
++                ServerType.valueOf(LamingtonConfig.serverType);
++            } catch (EnumConstantNotPresentException | IllegalArgumentException e) {
++                Bukkit.getLogger().log(Level.SEVERE, "Could not load lamington.yml, please correct your syntax errors", e);
++                throw Throwables.propagate(e);
++            }
 +        } catch (IOException ignore) {
 +        } catch (InvalidConfigurationException ex) {
 +            Bukkit.getLogger().log(Level.SEVERE, "Could not load lamington.yml, please correct your syntax errors", ex);
@@ -572,6 +580,7 @@ index 0000000000000000000000000000000000000000..01739b3a65be8b4489945f71053376a1
 +    public static String redisHost = "127.0.0.1";
 +    public static int redisPort = 6379;
 +    public static String redisPassword = "P4s5W0rd!";
++    public static String jedisTable = "lamington_heartbeat";
 +
 +    private static void heartbeat() {
 +        serverName = getString("heartbeat.server-name", serverName);
@@ -587,6 +596,7 @@ index 0000000000000000000000000000000000000000..01739b3a65be8b4489945f71053376a1
 +        redisHost = getString("redis.host", redisHost);
 +        redisPort = getInt("redis.port", redisPort);
 +        redisPassword = getString("redis.password", redisPassword);
++        jedisTable =  getString("jedis.table", jedisTable);
 +    }
 +}
 diff --git a/src/main/java/net/dxtrus/commands/LamingtonCommand.java b/src/main/java/net/dxtrus/commands/LamingtonCommand.java
@@ -917,16 +927,19 @@ index 385b07675ee8786fb83ee0f436d59e50afeabc82..31eea3e496f0bc79596376cec57679d1
  }
 diff --git a/src/main/java/net/dxtrus/heartbeat/StartMonitoringTask.java b/src/main/java/net/dxtrus/heartbeat/StartMonitoringTask.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..37c1e61a48d46810bccda80d03ad779cdadca087
+index 0000000000000000000000000000000000000000..c7ae8d560aff35059d54cf9e55e9f80ca303962a
 --- /dev/null
 +++ b/src/main/java/net/dxtrus/heartbeat/StartMonitoringTask.java
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,58 @@
 +package net.dxtrus.heartbeat;
 +
 +import com.google.gson.JsonObject;
++import net.dxtrus.LamingtonConfig;
 +import net.dxtrus.logger.LamingtonLogger;
 +import org.bukkit.Bukkit;
++import org.bukkit.Server;
 +import redis.clients.jedis.Jedis;
++import redis.clients.jedis.exceptions.JedisConnectionException;
 +import java.util.concurrent.CompletableFuture;
 +import java.util.logging.Level;
 +import java.util.logging.Logger;
@@ -941,6 +954,7 @@ index 0000000000000000000000000000000000000000..37c1e61a48d46810bccda80d03ad779c
 +                return;
 +            }
 +
++            int serverType = ServerType.valueOf(LamingtonConfig.serverType).getId();
 +            long startTime = System.currentTimeMillis();
 +            double tps = Math.min(Bukkit.getTPS()[0], 20.0);
 +            double mspt = Math.round(Bukkit.getAverageTickTime() * 100.0) / 100.0;
@@ -949,6 +963,7 @@ index 0000000000000000000000000000000000000000..37c1e61a48d46810bccda80d03ad779c
 +            JsonObject serverData = new JsonObject();
 +
 +            serverData.addProperty("server", heartBeat.getCurrentServer());
++            serverData.addProperty("serverType", serverType);
 +            serverData.addProperty("onlinePlayers", onlinePlayers);
 +            serverData.addProperty("tps", tps);
 +            serverData.addProperty("mspt", mspt);
@@ -958,9 +973,11 @@ index 0000000000000000000000000000000000000000..37c1e61a48d46810bccda80d03ad779c
 +            String serverDataJson = serverData.toString();
 +
 +            try (Jedis jedis = heartBeat.getPool().getResource()) {
-+                jedis.hset("lamington_heartbeat", heartBeat.getCurrentServer(), serverDataJson);
++                jedis.hset(LamingtonConfig.jedisTable, heartBeat.getCurrentServer(), serverDataJson);
++            } catch (JedisConnectionException e) {
++                Logger.getLogger("Lamington").warning("Failed to put server data in to redis because the connection packet failed, this is usually ignorable & due to packet loss.");
 +            } catch (Exception e) {
-+                Logger.getLogger("Lamington").log(Level.SEVERE, "Lamington failed to send server data with redis: ", e);
++                Logger.getLogger("Lamington").log(Level.SEVERE, "Failed to put server data in to redis: ", e);
 +            }
 +        });
 +    }
@@ -974,15 +991,17 @@ index 0000000000000000000000000000000000000000..37c1e61a48d46810bccda80d03ad779c
 +}
 diff --git a/src/main/java/net/dxtrus/heartbeat/StartPingTask.java b/src/main/java/net/dxtrus/heartbeat/StartPingTask.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..f2447338a55528dee57c7eac8688f439095aff99
+index 0000000000000000000000000000000000000000..75798c6f93d7e966af85161fb8a5523cf5d4b874
 --- /dev/null
 +++ b/src/main/java/net/dxtrus/heartbeat/StartPingTask.java
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,43 @@
 +package net.dxtrus.heartbeat;
 +
 +import com.google.gson.JsonParser;
++import net.dxtrus.LamingtonConfig;
 +import org.bukkit.Bukkit;
 +import redis.clients.jedis.Jedis;
++import redis.clients.jedis.exceptions.JedisConnectionException;
 +import java.util.Map;
 +import java.util.concurrent.CompletableFuture;
 +import java.util.logging.Level;
@@ -1000,12 +1019,14 @@ index 0000000000000000000000000000000000000000..f2447338a55528dee57c7eac8688f439
 +
 +            try (Jedis jedis = heartBeat.getPool().getResource()) {
 +                heartBeat.getServers().clear();
-+                Map<String, String> temp = jedis.hgetAll("lamington_heartbeat");
++                Map<String, String> temp = jedis.hgetAll(LamingtonConfig.jedisTable);
 +                for (String key : temp.keySet()) {
 +                    heartBeat.getServers().put(key, JsonParser.parseString(temp.get(key)).getAsJsonObject());
 +                }
++            } catch (JedisConnectionException e) {
++                Logger.getLogger("Lamington").warning("Failed to get server data from redis because the connection packet failed, this is usually ignorable & due to packet loss.");
 +            } catch (Exception e) {
-+                Logger.getLogger("Lamington").log(Level.SEVERE, "Lamington failed to get server data from redis: ", e);
++                Logger.getLogger("Lamington").log(Level.SEVERE, "Failed to put server data in to redis: ", e);
 +            }
 +        });
 +    }
