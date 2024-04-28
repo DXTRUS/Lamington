@@ -386,7 +386,7 @@ index ad4c45a8934652b8379ce093c529ccbbf0826d02..a230e937f996ceb1e525fd271c3012a3
 +    // Lamington end
  }
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
-index a33ac9c9c3228b6216ff5702fd4548861c652430..f3a12a744a89246d3bfbe272e9801731e43f2eb8 100644
+index 32c22a91deefb810805ec5f61f1d9e4375f38e38..bc9376ad9b6d38f5281a05f6e10665565b301a65 100644
 --- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 +++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 @@ -43,6 +43,7 @@ import java.util.logging.Logger;
@@ -418,19 +418,3 @@ index a33ac9c9c3228b6216ff5702fd4548861c652430..f3a12a744a89246d3bfbe272e9801731
 +    }
 +    // Lamington end
  }
-diff --git a/src/main/java/org/purpurmc/purpur/PurpurConfig.java b/src/main/java/org/purpurmc/purpur/PurpurConfig.java
-index efe25d3894f3ad000257c72d9a5e06ef22446d41..64f0df65e07137c28ac5cf80680cd2b9547853c2 100644
---- a/src/main/java/org/purpurmc/purpur/PurpurConfig.java
-+++ b/src/main/java/org/purpurmc/purpur/PurpurConfig.java
-@@ -231,10 +231,7 @@ public class PurpurConfig {
-         deathMessageOnlyBroadcastToAffectedPlayer = getBoolean("settings.broadcasts.death.only-broadcast-to-affected-player", deathMessageOnlyBroadcastToAffectedPlayer);
-     }
- 
--    public static String serverModName = "Purpur";
--    private static void serverModName() {
--        serverModName = getString("settings.server-mod-name", serverModName);
--    }
-+    public static String serverModName = "§9§lLamington §8(DXTRUS)"; // Lamington - Force this
- 
-     public static double laggingThreshold = 19.0D;
-     private static void tickLoopSettings() {
