@@ -4,12 +4,21 @@
 
 [![MIT License](https://img.shields.io/github/license/DXTRUS/Lamington?&logo=github)](LICENSE)
 
-Lamington is a 1.20.4 Purpur fork focusing on making scaling SMP style servers a painless experience, using a very different approach to MultiPaper!
+Lamington is a 1.20.4 Purpur fork focusing on making scaling servers a painless experience, whether it be an SMP or skyblock, Lamington will be sure to help your development process smoother!
 
 </div>
 
+## Features
+- [HeartBeat](README.md)
+- - API for getting information
+- - Syncs data between all Lamington instances connected to the same Redis server
+- - Use the information outside just your server (ie: Your website)
+- [SMP Zoning](SMP-ZONING.md)
+- - Split your world across multiple servers
+- - Customisable border
+
 ## Contact
-Join us on Discord:
+Join us on Discord: https://discord.gg/RRzCH6WjEv
 
 ## API
 
