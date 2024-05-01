@@ -1,0 +1,398 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ProdPreva1l <prod.preva1l@gmail.com>
+Date: Wed, 1 May 2024 17:47:03 +1000
+Subject: [PATCH] Add command classes
+
+
+diff --git a/src/main/java/net/dxtrus/LamingtonPlugin.java b/src/main/java/net/dxtrus/LamingtonPlugin.java
+index 6f9db8459e2e0b52e843dc0192bceb6cb50cdf96..454d47d9c37c028125154521096819e45daf2813 100644
+--- a/src/main/java/net/dxtrus/LamingtonPlugin.java
++++ b/src/main/java/net/dxtrus/LamingtonPlugin.java
+@@ -1,5 +1,6 @@
+ package net.dxtrus;
+ 
++import net.dxtrus.commands.CommandManager;
+ import net.dxtrus.logger.LamingtonLogger;
+ import net.dxtrus.utils.BungeeMessenger;
+ import org.bukkit.plugin.java.JavaPlugin;
+@@ -8,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
+ public abstract class LamingtonPlugin extends JavaPlugin {
+     private static LamingtonLogger console;
+     private BungeeMessenger bungeeMessenger;
++    private CommandManager commandManager;
+ 
+     public abstract void startPlugin();
+     public abstract void stopPlugin();
+@@ -18,6 +20,7 @@ public abstract class LamingtonPlugin extends JavaPlugin {
+ 
+         console = new LamingtonLogger(this);
+         bungeeMessenger = new BungeeMessenger(this);
++        commandManager = new CommandManager(this);
+         getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+     }
+     @Override
+@@ -35,6 +38,11 @@ public abstract class LamingtonPlugin extends JavaPlugin {
+         return bungeeMessenger;
+     }
+ 
++    @NotNull
++    public CommandManager getCommandManager() {
++        return commandManager;
++    }
++
+     /**
+      * Get the instance of {@link LamingtonLogger}
+      * makes one if none exists
+diff --git a/src/main/java/net/dxtrus/commands/Command.java b/src/main/java/net/dxtrus/commands/Command.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..33d79e4dc3a25217a9c4e67c9d824ede2e6a488a
+--- /dev/null
++++ b/src/main/java/net/dxtrus/commands/Command.java
+@@ -0,0 +1,139 @@
++package net.dxtrus.commands;
++
++import lombok.Getter;
++import net.dxtrus.LamingtonPlugin;
++import net.dxtrus.utils.Text;
++import org.bukkit.Bukkit;
++import org.bukkit.command.CommandSender;
++import org.bukkit.command.ConsoleCommandSender;
++import org.bukkit.command.defaults.BukkitCommand;
++import org.bukkit.entity.HumanEntity;
++import org.bukkit.util.StringUtil;
++import org.jetbrains.annotations.NotNull;
++
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.List;
++
++@Getter
++public abstract class Command {
++
++    public LamingtonPlugin plugin;
++    private CommandExecutor executor;
++    private CommandArgs assigned;
++    private boolean senderHasPermission = false;
++
++    public Command(LamingtonPlugin plugin) {
++        this.plugin = plugin;
++        this.register();
++    }
++
++    public void register() {
++        this.assigned = Arrays.stream(this.getClass().getMethods()).filter(method -> method.getAnnotation(CommandArgs.class) != null).map(method -> method.getAnnotation(CommandArgs.class)).findFirst().orElse(null);
++
++        if (assigned != null) {
++            this.executor = new CommandExecutor(assigned.name(), assigned);
++            plugin.getCommandManager().registerCommand(this, executor);
++        }
++    }
++
++    public abstract void execute(@NotNull CommandArguments command);
++
++    public List<String> onTabComplete(CommandArguments command) {
++        return new ArrayList<>();
++    }
++
++    //This is default tab complete which should return a list of online players
++    public List<String> getDefaultTabComplete(CommandArguments command) {
++        List<String> completors = new ArrayList<>();
++
++        List<String> values = Bukkit.getOnlinePlayers().stream().map(HumanEntity::getName).toList();
++
++        String[] args = command.args();
++
++        if (args.length == 0) return new ArrayList<>();
++
++        if (!args[args.length - 1].equalsIgnoreCase("")) {
++            values.forEach(value -> {
++                if (value.toLowerCase().startsWith(args[args.length - 1].toLowerCase())) {
++                    completors.add(value);
++                }
++            });
++        } else {
++            completors.addAll(values);
++        }
++        return completors;
++    }
++
++    public List<String> subCommandsTabCompleter(CommandArguments command, List<SubCommand> subCommands) {
++        List<String> completions = new ArrayList<>();
++        List<String> ret = new ArrayList<>();
++        if (command.args().length != 1) return completions;
++        for (SubCommand subCommand : subCommands) {
++            if (!command.sender().hasPermission(subCommand.getAssigned().permission())) continue;
++            ret.add(subCommand.getAssigned().name());
++            Collections.addAll(ret, subCommand.getAssigned().aliases());
++        }
++        StringUtil.copyPartialMatches(command.args()[0], ret, completions);
++        return completions;
++    }
++
++    public boolean subCommandExecutor(@NotNull CommandArguments command, List<SubCommand> subCommands2) {
++        for (SubCommand subCommand : subCommands2) {
++            if (command.args()[0].equalsIgnoreCase(subCommand.getAssigned().name()) || Arrays.stream(subCommand.getAssigned().aliases()).toList().contains(command.args()[0])) {
++                subCommand.executor(command.sender(), command.label(), command.args());
++                return true;
++            }
++        }
++        return false;
++    }
++
++    public class CommandExecutor extends BukkitCommand {
++
++        private final boolean inGameOnly;
++        private final boolean async;
++        private CommandArguments executeArguments;
++
++        public CommandExecutor(String name, CommandArgs assigned) {
++            super(name);
++            this.setAliases(Arrays.asList(assigned.aliases()));
++            this.setPermission(assigned.permission());
++            this.inGameOnly = assigned.inGameOnly();
++            this.async = assigned.async();
++        }
++
++        @Override
++        public boolean execute(@NotNull CommandSender sender, @NotNull String label, @NotNull String[] args) {
++            if (this.inGameOnly && sender instanceof ConsoleCommandSender) {
++                sender.sendMessage(Text.message("&cYou must be a player to run this command!"));
++                return false;
++            }
++            if (this.getPermission() != null && !sender.hasPermission(this.getPermission())) {
++                senderHasPermission = false;
++                sender.sendMessage(Text.message("&cNo Permission!"));
++                return false;
++            }
++
++            this.executeArguments = new CommandArguments(sender, label, args);
++
++            if (this.async) {
++                Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> Command.this.execute(executeArguments));
++            } else {
++                Command.this.execute(executeArguments);
++            }
++            return false;
++        }
++
++        @NotNull
++        @Override
++        public List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String[] args) throws IllegalArgumentException {
++            List<String> completors = onTabComplete(new CommandArguments(sender, null, args));
++
++            if (completors.isEmpty()) {
++                completors.addAll(getDefaultTabComplete(new CommandArguments(sender, null, args)));
++            }
++            return completors;
++        }
++    }
++}
+diff --git a/src/main/java/net/dxtrus/commands/CommandArgs.java b/src/main/java/net/dxtrus/commands/CommandArgs.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..c80da4e655a35953d3cab321eb3b7337941b5b33
+--- /dev/null
++++ b/src/main/java/net/dxtrus/commands/CommandArgs.java
+@@ -0,0 +1,16 @@
++package net.dxtrus.commands;
++
++import java.lang.annotation.ElementType;
++import java.lang.annotation.Retention;
++import java.lang.annotation.RetentionPolicy;
++import java.lang.annotation.Target;
++
++@Target(ElementType.METHOD)
++@Retention(RetentionPolicy.RUNTIME)
++public @interface CommandArgs {
++    String name();
++    String permission() default "";
++    String[] aliases() default {};
++    boolean inGameOnly() default true;
++    boolean async() default false;
++}
+diff --git a/src/main/java/net/dxtrus/commands/CommandArguments.java b/src/main/java/net/dxtrus/commands/CommandArguments.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..6ec7bc6dd6edadd83622ca56375b63ba00abd902
+--- /dev/null
++++ b/src/main/java/net/dxtrus/commands/CommandArguments.java
+@@ -0,0 +1,11 @@
++package net.dxtrus.commands;
++
++import org.bukkit.command.CommandSender;
++import org.bukkit.entity.Player;
++
++public record CommandArguments(CommandSender sender, String label, String[] args) {
++    public Player getPlayer() {
++        if (!(sender instanceof Player)) return null;
++        return (Player) sender;
++    }
++}
+diff --git a/src/main/java/net/dxtrus/commands/CommandManager.java b/src/main/java/net/dxtrus/commands/CommandManager.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..eaf9755968f3f96a5dc09d0d45038141747c5328
+--- /dev/null
++++ b/src/main/java/net/dxtrus/commands/CommandManager.java
+@@ -0,0 +1,37 @@
++package net.dxtrus.commands;
++
++import lombok.Getter;
++import net.dxtrus.LamingtonPlugin;
++
++import java.util.ArrayList;
++import java.util.List;
++
++@Getter
++public class CommandManager {
++
++    private final LamingtonPlugin plugin;
++
++    public CommandManager(LamingtonPlugin plugin) {
++        this.plugin = plugin;
++    }
++
++    private final List<Command> loadedCommands = new ArrayList<>();
++
++    public void registerCommand(Command base, Command.CommandExecutor command) {
++        plugin.getServer().getCommandMap();
++        plugin.getServer().getCommandMap().register(plugin.getDescription().getName().toLowerCase(), command);
++        loadedCommands.add(base);
++    }
++
++    public void registerCommand(Command base, Command.CommandExecutor command, List<String> aliases) {
++        if (base.getAssigned() == null) return;
++
++        command.getAliases().addAll(aliases);
++
++        plugin.getServer().getCommandMap();
++        plugin.getServer().getCommandMap().register(plugin.getDescription().getName().toLowerCase(), command);
++
++        loadedCommands.removeIf(loaded -> loaded.getAssigned().name().equalsIgnoreCase(base.getAssigned().name()));
++        loadedCommands.add(base);
++    }
++}
+diff --git a/src/main/java/net/dxtrus/commands/SubCommand.java b/src/main/java/net/dxtrus/commands/SubCommand.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..ddcefeba6899fb3ad0ec129c43b5850ebd9f3390
+--- /dev/null
++++ b/src/main/java/net/dxtrus/commands/SubCommand.java
+@@ -0,0 +1,80 @@
++package net.dxtrus.commands;
++
++import lombok.Getter;
++import net.dxtrus.LamingtonPlugin;
++import net.dxtrus.utils.Text;
++import org.bukkit.Bukkit;
++import org.bukkit.command.CommandSender;
++import org.bukkit.command.ConsoleCommandSender;
++import org.bukkit.entity.HumanEntity;
++import org.jetbrains.annotations.NotNull;
++
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.List;
++
++@Getter
++public abstract class SubCommand {
++
++    public LamingtonPlugin plugin;
++    private final SubCommandArgs assigned;
++    private SubCommandArguments executeArguments;
++    private boolean senderHasPermission = false;
++
++    public SubCommand(LamingtonPlugin plugin) {
++        this.plugin = plugin;
++        this.assigned = Arrays.stream(this.getClass().getMethods()).filter(method -> method.getAnnotation(SubCommandArgs.class) != null).map(method -> method.getAnnotation(SubCommandArgs.class)).findFirst().orElse(null);
++    }
++
++    public abstract void execute(@NotNull SubCommandArguments command);
++
++    public final void executor(@NotNull CommandSender sender, @NotNull String label, @NotNull String[] args) {
++        if (this.assigned.inGameOnly() && sender instanceof ConsoleCommandSender) {
++            sender.sendMessage(Text.message("&cYou must be a player to run this command!"));
++            return;
++        }
++        if (this.assigned.permission() != null && !sender.hasPermission(this.assigned.permission())) {
++            senderHasPermission = false;
++            sender.sendMessage(Text.message("&cNo Permission!"));
++            return;
++        }
++
++        if (args.length == 0) {
++            this.executeArguments = new SubCommandArguments(sender, label, new String[0], this.assigned.async(), this.assigned.inGameOnly());
++        } else {
++            this.executeArguments = new SubCommandArguments(sender, label, Arrays.copyOfRange(args, 1, args.length), this.assigned.async(), this.assigned.inGameOnly());
++        }
++
++        if (this.assigned.async()) {
++            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> this.execute(executeArguments));
++        } else {
++            Bukkit.getScheduler().runTask(plugin, () -> this.execute(executeArguments));
++        }
++    }
++
++    public List<String> onTabComplete(SubCommandArguments command) {
++        return new ArrayList<>();
++    }
++
++    //This is default tab complete which should return a list of online players
++    public List<String> getDefaultTabComplete(CommandArguments command) {
++        List<String> completors = new ArrayList<>();
++
++        List<String> values = Bukkit.getOnlinePlayers().stream().map(HumanEntity::getName).toList();
++
++        String[] args = command.args();
++
++        if (args.length == 0) return new ArrayList<>();
++
++        if (!args[args.length - 1].equalsIgnoreCase("")) {
++            values.forEach(value -> {
++                if (value.toLowerCase().startsWith(args[args.length - 1].toLowerCase())) {
++                    completors.add(value);
++                }
++            });
++        } else {
++            completors.addAll(values);
++        }
++        return completors;
++    }
++}
+diff --git a/src/main/java/net/dxtrus/commands/SubCommandArgs.java b/src/main/java/net/dxtrus/commands/SubCommandArgs.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..ad3eba5f8cf0a5692b65d00292b33ccc547a4c3b
+--- /dev/null
++++ b/src/main/java/net/dxtrus/commands/SubCommandArgs.java
+@@ -0,0 +1,16 @@
++package net.dxtrus.commands;
++
++import java.lang.annotation.ElementType;
++import java.lang.annotation.Retention;
++import java.lang.annotation.RetentionPolicy;
++import java.lang.annotation.Target;
++
++@Target(ElementType.METHOD)
++@Retention(RetentionPolicy.RUNTIME)
++public @interface SubCommandArgs {
++    String name();
++    String permission() default "";
++    String[] aliases() default {};
++    boolean inGameOnly() default true;
++    boolean async() default false;
++}
+diff --git a/src/main/java/net/dxtrus/commands/SubCommandArguments.java b/src/main/java/net/dxtrus/commands/SubCommandArguments.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..1494d8f93fdd1942eeb66ffe1df8d56575a1b713
+--- /dev/null
++++ b/src/main/java/net/dxtrus/commands/SubCommandArguments.java
+@@ -0,0 +1,12 @@
++package net.dxtrus.commands;
++
++import org.bukkit.command.CommandSender;
++import org.bukkit.entity.Player;
++
++public record SubCommandArguments(CommandSender sender, String label, String[] args, boolean async, boolean inGameOnly) {
++    public Player getPlayer() {
++        if (inGameOnly) return (Player) sender;
++        if (!(sender instanceof Player)) return null;
++        return (Player) sender;
++    }
++}
