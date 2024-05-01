@@ -3,6 +3,7 @@ From: ProdPreva1l <prod.preva1l@gmail.com>
 Date: Wed, 1 May 2024 17:47:03 +1000
 Subject: [PATCH] Add command classes
 
+* Add javadocs
 
 diff --git a/src/main/java/net/dxtrus/LamingtonPlugin.java b/src/main/java/net/dxtrus/LamingtonPlugin.java
 index 6f9db8459e2e0b52e843dc0192bceb6cb50cdf96..454d47d9c37c028125154521096819e45daf2813 100644
@@ -45,10 +46,10 @@ index 6f9db8459e2e0b52e843dc0192bceb6cb50cdf96..454d47d9c37c028125154521096819e4
       * makes one if none exists
 diff --git a/src/main/java/net/dxtrus/commands/Command.java b/src/main/java/net/dxtrus/commands/Command.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..33d79e4dc3a25217a9c4e67c9d824ede2e6a488a
+index 0000000000000000000000000000000000000000..05155387c6eaf7f0256564738df379f46d8c789e
 --- /dev/null
 +++ b/src/main/java/net/dxtrus/commands/Command.java
-@@ -0,0 +1,139 @@
+@@ -0,0 +1,185 @@
 +package net.dxtrus.commands;
 +
 +import lombok.Getter;
@@ -60,6 +61,8 @@ index 0000000000000000000000000000000000000000..33d79e4dc3a25217a9c4e67c9d824ede
 +import org.bukkit.command.defaults.BukkitCommand;
 +import org.bukkit.entity.HumanEntity;
 +import org.bukkit.util.StringUtil;
++import org.checkerframework.common.returnsreceiver.qual.This;
++import org.jetbrains.annotations.ApiStatus;
 +import org.jetbrains.annotations.NotNull;
 +
 +import java.util.ArrayList;
@@ -75,11 +78,19 @@ index 0000000000000000000000000000000000000000..33d79e4dc3a25217a9c4e67c9d824ede
 +    private CommandArgs assigned;
 +    private boolean senderHasPermission = false;
 +
++    /**
++     * A new lamington command
++     * @param plugin your plugin
++     */
 +    public Command(LamingtonPlugin plugin) {
 +        this.plugin = plugin;
 +        this.register();
 +    }
 +
++    /**
++     * Register the command
++     */
++    @ApiStatus.Internal
 +    public void register() {
 +        this.assigned = Arrays.stream(this.getClass().getMethods()).filter(method -> method.getAnnotation(CommandArgs.class) != null).map(method -> method.getAnnotation(CommandArgs.class)).findFirst().orElse(null);
 +
@@ -89,13 +100,26 @@ index 0000000000000000000000000000000000000000..33d79e4dc3a25217a9c4e67c9d824ede
 +        }
 +    }
 +
++    /**
++     * Calls the command
++     * @param command the args for the command
++     */
++    @ApiStatus.Internal
 +    public abstract void execute(@NotNull CommandArguments command);
 +
++    /**
++     * Override this to do tab completion
++     * @param command the command that is getting tab completed
++     * @return list of the things to tab complete
++     */
 +    public List<String> onTabComplete(CommandArguments command) {
 +        return new ArrayList<>();
 +    }
 +
-+    //This is default tab complete which should return a list of online players
++    /**
++     * This is default tab complete which should return a list of online players
++     */
++    @ApiStatus.Internal
 +    public List<String> getDefaultTabComplete(CommandArguments command) {
 +        List<String> completors = new ArrayList<>();
 +
@@ -117,6 +141,12 @@ index 0000000000000000000000000000000000000000..33d79e4dc3a25217a9c4e67c9d824ede
 +        return completors;
 +    }
 +
++    /**
++     * Use this to tab complete your sub commands
++     * @param command the command getting completed
++     * @param subCommands a list of your sub commands (constructed in your command initializer)
++     * @return a list of your subcommands that automatically filters as the user types
++     */
 +    public List<String> subCommandsTabCompleter(CommandArguments command, List<SubCommand> subCommands) {
 +        List<String> completions = new ArrayList<>();
 +        List<String> ret = new ArrayList<>();
@@ -130,8 +160,21 @@ index 0000000000000000000000000000000000000000..33d79e4dc3a25217a9c4e67c9d824ede
 +        return completions;
 +    }
 +
-+    public boolean subCommandExecutor(@NotNull CommandArguments command, List<SubCommand> subCommands2) {
-+        for (SubCommand subCommand : subCommands2) {
++    /**
++     * This one's hard to explain so here's a code snippet:
++     * <pre>{@code
++     * if (command.args().length >= 1) {
++     *   if (subCommandExecutor(command, subCommands)) return;
++     *   command.sender().sendMessage(Lang.PREFIX.toFormattedString() + Text.colorize("&cThis command does not exist!"));
++     *   return;
++     * }
++     * }</pre>
++     * @param command the root command get executed
++     * @param subCommands a list of your sub commands (constructed in your command initializer)
++     * @return true if command exists false if not
++     */
++    public boolean subCommandExecutor(@NotNull CommandArguments command, List<SubCommand> subCommands) {
++        for (SubCommand subCommand : subCommands) {
 +            if (command.args()[0].equalsIgnoreCase(subCommand.getAssigned().name()) || Arrays.stream(subCommand.getAssigned().aliases()).toList().contains(command.args()[0])) {
 +                subCommand.executor(command.sender(), command.label(), command.args());
 +                return true;
@@ -140,6 +183,10 @@ index 0000000000000000000000000000000000000000..33d79e4dc3a25217a9c4e67c9d824ede
 +        return false;
 +    }
 +
++    /**
++     * You can safely ignore this class
++     */
++    @ApiStatus.Internal
 +    public class CommandExecutor extends BukkitCommand {
 +
 +        private final boolean inGameOnly;
@@ -212,16 +259,22 @@ index 0000000000000000000000000000000000000000..c80da4e655a35953d3cab321eb3b7337
 +}
 diff --git a/src/main/java/net/dxtrus/commands/CommandArguments.java b/src/main/java/net/dxtrus/commands/CommandArguments.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..6ec7bc6dd6edadd83622ca56375b63ba00abd902
+index 0000000000000000000000000000000000000000..d18d5938a7b5d0dd165defadc0296e38016894ad
 --- /dev/null
 +++ b/src/main/java/net/dxtrus/commands/CommandArguments.java
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,17 @@
 +package net.dxtrus.commands;
 +
 +import org.bukkit.command.CommandSender;
 +import org.bukkit.entity.Player;
++import org.jetbrains.annotations.Nullable;
 +
 +public record CommandArguments(CommandSender sender, String label, String[] args) {
++    /**
++     * Get the player instead of sender, you can safely use {@code assert commandArguments.getPlayer() != null} if you have specified in the @CommandArgs that it is in game only
++     * @return the player, null if the sender is console
++     */
++    @Nullable
 +    public Player getPlayer() {
 +        if (!(sender instanceof Player)) return null;
 +        return (Player) sender;
@@ -229,14 +282,15 @@ index 0000000000000000000000000000000000000000..6ec7bc6dd6edadd83622ca56375b63ba
 +}
 diff --git a/src/main/java/net/dxtrus/commands/CommandManager.java b/src/main/java/net/dxtrus/commands/CommandManager.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..eaf9755968f3f96a5dc09d0d45038141747c5328
+index 0000000000000000000000000000000000000000..eae9f28991aaafa71627ae523ef6fdb3ba988bb5
 --- /dev/null
 +++ b/src/main/java/net/dxtrus/commands/CommandManager.java
-@@ -0,0 +1,37 @@
+@@ -0,0 +1,32 @@
 +package net.dxtrus.commands;
 +
 +import lombok.Getter;
 +import net.dxtrus.LamingtonPlugin;
++import org.jetbrains.annotations.ApiStatus;
 +
 +import java.util.ArrayList;
 +import java.util.List;
@@ -252,30 +306,24 @@ index 0000000000000000000000000000000000000000..eaf9755968f3f96a5dc09d0d45038141
 +
 +    private final List<Command> loadedCommands = new ArrayList<>();
 +
++    /**
++     * Register a command to the server
++     * @param base the command
++     * @param command the executor
++     */
++    @ApiStatus.Internal
 +    public void registerCommand(Command base, Command.CommandExecutor command) {
 +        plugin.getServer().getCommandMap();
 +        plugin.getServer().getCommandMap().register(plugin.getDescription().getName().toLowerCase(), command);
 +        loadedCommands.add(base);
 +    }
-+
-+    public void registerCommand(Command base, Command.CommandExecutor command, List<String> aliases) {
-+        if (base.getAssigned() == null) return;
-+
-+        command.getAliases().addAll(aliases);
-+
-+        plugin.getServer().getCommandMap();
-+        plugin.getServer().getCommandMap().register(plugin.getDescription().getName().toLowerCase(), command);
-+
-+        loadedCommands.removeIf(loaded -> loaded.getAssigned().name().equalsIgnoreCase(base.getAssigned().name()));
-+        loadedCommands.add(base);
-+    }
 +}
 diff --git a/src/main/java/net/dxtrus/commands/SubCommand.java b/src/main/java/net/dxtrus/commands/SubCommand.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..ddcefeba6899fb3ad0ec129c43b5850ebd9f3390
+index 0000000000000000000000000000000000000000..1b28a327f2ba1cbdf40047a5d4742e96d7a71e4d
 --- /dev/null
 +++ b/src/main/java/net/dxtrus/commands/SubCommand.java
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,67 @@
 +package net.dxtrus.commands;
 +
 +import lombok.Getter;
@@ -284,12 +332,10 @@ index 0000000000000000000000000000000000000000..ddcefeba6899fb3ad0ec129c43b5850e
 +import org.bukkit.Bukkit;
 +import org.bukkit.command.CommandSender;
 +import org.bukkit.command.ConsoleCommandSender;
-+import org.bukkit.entity.HumanEntity;
++import org.jetbrains.annotations.ApiStatus;
 +import org.jetbrains.annotations.NotNull;
 +
-+import java.util.ArrayList;
 +import java.util.Arrays;
-+import java.util.List;
 +
 +@Getter
 +public abstract class SubCommand {
@@ -299,13 +345,28 @@ index 0000000000000000000000000000000000000000..ddcefeba6899fb3ad0ec129c43b5850e
 +    private SubCommandArguments executeArguments;
 +    private boolean senderHasPermission = false;
 +
++    /**
++     * A new lamington sub command
++     * @param plugin your plugin
++     */
 +    public SubCommand(LamingtonPlugin plugin) {
 +        this.plugin = plugin;
 +        this.assigned = Arrays.stream(this.getClass().getMethods()).filter(method -> method.getAnnotation(SubCommandArgs.class) != null).map(method -> method.getAnnotation(SubCommandArgs.class)).findFirst().orElse(null);
 +    }
 +
++    /**
++     * Calls the sub command
++     * @param command the sub command args
++     */
 +    public abstract void execute(@NotNull SubCommandArguments command);
 +
++    /**
++     * This actually executes the sub command
++     * @param sender command sender
++     * @param label the original command
++     * @param args the args of the original command
++     */
++    @ApiStatus.Internal
 +    public final void executor(@NotNull CommandSender sender, @NotNull String label, @NotNull String[] args) {
 +        if (this.assigned.inGameOnly() && sender instanceof ConsoleCommandSender) {
 +            sender.sendMessage(Text.message("&cYou must be a player to run this command!"));
@@ -328,32 +389,6 @@ index 0000000000000000000000000000000000000000..ddcefeba6899fb3ad0ec129c43b5850e
 +        } else {
 +            Bukkit.getScheduler().runTask(plugin, () -> this.execute(executeArguments));
 +        }
-+    }
-+
-+    public List<String> onTabComplete(SubCommandArguments command) {
-+        return new ArrayList<>();
-+    }
-+
-+    //This is default tab complete which should return a list of online players
-+    public List<String> getDefaultTabComplete(CommandArguments command) {
-+        List<String> completors = new ArrayList<>();
-+
-+        List<String> values = Bukkit.getOnlinePlayers().stream().map(HumanEntity::getName).toList();
-+
-+        String[] args = command.args();
-+
-+        if (args.length == 0) return new ArrayList<>();
-+
-+        if (!args[args.length - 1].equalsIgnoreCase("")) {
-+            values.forEach(value -> {
-+                if (value.toLowerCase().startsWith(args[args.length - 1].toLowerCase())) {
-+                    completors.add(value);
-+                }
-+            });
-+        } else {
-+            completors.addAll(values);
-+        }
-+        return completors;
 +    }
 +}
 diff --git a/src/main/java/net/dxtrus/commands/SubCommandArgs.java b/src/main/java/net/dxtrus/commands/SubCommandArgs.java
@@ -380,16 +415,20 @@ index 0000000000000000000000000000000000000000..ad3eba5f8cf0a5692b65d00292b33ccc
 +}
 diff --git a/src/main/java/net/dxtrus/commands/SubCommandArguments.java b/src/main/java/net/dxtrus/commands/SubCommandArguments.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..1494d8f93fdd1942eeb66ffe1df8d56575a1b713
+index 0000000000000000000000000000000000000000..32dda51f98fb58e4649d3acfeb288b68d801e20b
 --- /dev/null
 +++ b/src/main/java/net/dxtrus/commands/SubCommandArguments.java
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,16 @@
 +package net.dxtrus.commands;
 +
 +import org.bukkit.command.CommandSender;
 +import org.bukkit.entity.Player;
 +
 +public record SubCommandArguments(CommandSender sender, String label, String[] args, boolean async, boolean inGameOnly) {
++    /**
++     * Get the player instead of sender, you can safely use {@code assert subCommandArguments.getPlayer() != null} if you have specified in the @SubCommandArgs that it is in game only
++     * @return the player, null if the sender is console
++     */
 +    public Player getPlayer() {
 +        if (inGameOnly) return (Player) sender;
 +        if (!(sender instanceof Player)) return null;
